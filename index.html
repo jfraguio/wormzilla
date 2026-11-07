@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#04060e">
+  <meta name="color-scheme" content="dark">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="description" content="WORMZILLA — devora, crece y domina la arena orbital. Un juego de serpientes en solitario.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="WORMZILLA">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="shortcut icon" href="favicon.ico">
+  <link rel="apple-touch-icon" href="assets/icon-180.png">
+  <title>WORMZILLA</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="mode-menu">
+  <div id="app">
+    <canvas id="scene" aria-label="Arena de Wormzilla"></canvas>
+    <div class="fx-overlay" aria-hidden="true"></div>
+
+    <!-- ══════════════ HUD ══════════════ -->
+    <div id="hud" class="hud" aria-hidden="true">
+      <div class="hud-top">
+        <div class="score-panel glass">
+          <div class="hud-label">MASA</div>
+          <div class="score" id="hudScore">0</div>
+          <div class="score-sub">
+            <span class="kill-glyph" aria-hidden="true"></span>
+            <span id="hudKills">0</span> <em>BAJAS</em>
+          </div>
+          <div class="combo" id="hudCombo"></div>
+        </div>
+
+        <div class="hud-right">
+          <div class="hud-actions">
+            <button class="icon-btn" id="muteBtnHud" type="button" aria-label="Silenciar sonido" title="Sonido (M)">
+              <svg class="ico-sound" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/>
+                <path class="wave" d="M16 8.5a5 5 0 0 1 0 7M18.8 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                <path class="slash" d="M4 4l16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+              </svg>
+            </button>
+            <button class="icon-btn" id="pauseBtn" type="button" aria-label="Pausa" title="Pausa (Esc)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg>
+            </button>
+          </div>
+
+          <div class="leaderboard glass">
+            <div class="lb-head"><span>TOP SERPIENTES</span><span class="live-dot" aria-hidden="true"></span></div>
+            <div id="lbRows" class="lb-rows"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hud-bottom">
+        <div class="hint glass" id="hint">
+          <span class="hint-ico" aria-hidden="true"></span>
+          <span id="hintText">MUEVE EL RATÓN · MANTÉN PARA TURBO</span>
+        </div>
+        <div class="minimap-wrap glass" aria-hidden="true">
+          <canvas id="minimap" width="300" height="300"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ MENÚ ══════════════ -->
+    <main id="menu" class="screen menu-screen open">
+      <header class="menu-top">
+        <div class="brand-small"><span class="brand-mark"></span> WZ—01 <span class="solo-tag">SOLO</span></div>
+        <div class="menu-top-right">
+          <div class="coin-pill" title="Puntos disponibles"><span class="coin-icon"></span><span id="menuPoints">0</span></div>
+          <button class="icon-btn" id="muteBtn" type="button" aria-label="Silenciar sonido" title="Sonido (M)">
+            <svg class="ico-sound" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/>
+              <path class="wave" d="M16 8.5a5 5 0 0 1 0 7M18.8 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+              <path class="slash" d="M4 4l16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <button class="icon-btn" id="fsBtn" type="button" aria-label="Pantalla completa" title="Pantalla completa">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <section class="hero">
+        <div class="kicker"><span class="kicker-line"></span>ARENA ORBITAL<span class="kicker-line"></span></div>
+        <h1 class="logo" data-text="WORMZILLA">WORMZILLA</h1>
+        <p class="tagline">DEVORA<span class="dot">·</span>CRECE<span class="dot">·</span>DOMINA</p>
+
+        <div class="menu-buttons">
+          <button id="playBtn" class="btn primary btn-play" type="button">
+            <span class="play-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.2v13.6L19 12 8 5.2z" fill="currentColor"/></svg></span>
+            <span>JUGAR</span>
+          </button>
+          <button id="skinsBtn" class="btn ghost" type="button">
+            <span class="snake-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 17c0-2.2 1.8-4 4-4h6a4 4 0 0 0 0-8H9" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/><circle cx="9" cy="5" r="1.6" fill="currentColor"/><circle cx="6.2" cy="15.8" r="1.4" fill="currentColor"/></svg></span>
+            <span>SERPIENTES</span>
+          </button>
+        </div>
+
+        <div class="menu-meta">
+          <div class="meta-cell"><span>RÉCORD</span><strong id="menuBest">0</strong></div>
+          <div class="meta-div"></div>
+          <div class="meta-cell"><span>PARTIDAS</span><strong id="menuGames">0</strong></div>
+          <div class="meta-div"></div>
+          <div class="meta-cell"><span>BAJAS</span><strong id="menuKills">0</strong></div>
+        </div>
+
+        <button id="rulesBtn" class="link-btn" type="button"><span class="qmark">?</span> REGLAS Y CONTROLES</button>
+      </section>
+
+      <footer class="menu-footer">
+        <span class="mono-dim">v1.0 · UN JUGADOR</span>
+        <span class="menu-tip" id="menuTip">MUEVE EL RATÓN · MANTÉN PULSADO PARA TURBO</span>
+        <span class="mono-dim">WZ://SECTOR-07</span>
+      </footer>
+    </main>
+
+    <!-- ══════════════ SKINS ══════════════ -->
+    <section id="skinsScreen" class="screen skins-screen">
+      <header class="sub-top">
+        <button class="icon-btn" id="skinsBack" type="button" aria-label="Volver">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="sub-heading">
+          <div class="kicker tiny"><span class="kicker-line"></span>SERPIENTES<span class="kicker-line"></span></div>
+        </div>
+        <div class="coin-pill" title="Puntos disponibles"><span class="coin-icon"></span><span id="skinsPoints">0</span></div>
+      </header>
+      <p class="skins-sub">DESBLOQUEA CON PUNTOS · EQUIPA · DOMINA</p>
+      <div id="skinGrid" class="skin-grid"></div>
+      <footer class="skins-footer">
+        <span class="mono-dim">GANA PUNTOS DEVORANDO MASA Y CAZANDO SERPIENTES</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════ REGLAS ══════════════ -->
+    <section id="rulesScreen" class="screen modal-screen">
+      <div class="modal rules-modal glass">
+        <div class="modal-head">
+          <div>
+            <div class="kicker tiny"><span class="kicker-line"></span>PROTOCOLO<span class="kicker-line"></span></div>
+            <h2>REGLAS</h2>
+          </div>
+          <button class="icon-btn" id="rulesClose" type="button" aria-label="Cerrar">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+
+        <div class="rules-list">
+          <div class="rule">
+            <div class="rule-ico" style="--c:#44f5ff"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".45"/><circle cx="12" cy="12" r="4.2" fill="currentColor"/></svg></div>
+            <div><strong>DEVORA ORBES</strong><span>Crece y gana masa. Los dorados valen más.</span></div>
+          </div>
+          <div class="rule">
+            <div class="rule-ico" style="--c:#ff5ccf"><svg viewBox="0 0 24 24"><path d="M4 14c3.5-7 6.5 7 10 0s4 .8 6-1.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M15 16l4 4M19 16l-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+            <div><strong>EVITA LOS CUERPOS</strong><span>Si tu cabeza toca otra serpiente, sueltas toda tu masa.</span></div>
+          </div>
+          <div class="rule">
+            <div class="rule-ico" style="--c:#ff7a66"><svg viewBox="0 0 24 24"><path d="M3 12h5m8 0h5M8 8l4 4-4 4M16 8l-4 4 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <div><strong>CABEZA CON CABEZA</strong><span>Duelo directo: ambos caéis.</span></div>
+          </div>
+          <div class="rule desktop-only">
+            <div class="rule-ico" style="--c:#b8ff3d"><svg viewBox="0 0 24 24"><path d="M13 2 4.5 13.5h5.7L9.8 22l8.8-11.6h-5.8L13 2z" fill="currentColor"/></svg></div>
+            <div><strong>TURBO</strong><span>Mantén pulsado para acelerar. Consume masa y suelta orbes.</span></div>
+          </div>
+          <div class="rule touch-only">
+            <div class="rule-ico" style="--c:#44f5ff"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/><path d="M12 12l6-5M12 12l7 3M12 12l-6 5M12 12l-7-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity=".65"/><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2 4" opacity=".5"/></svg></div>
+            <div><strong>ARRASTRA EL DEDO</strong><span>Apoya el dedo y muévelo para girar. Al soltar, conservas el rumbo.</span></div>
+          </div>
+          <div class="rule">
+            <div class="rule-ico" style="--c:#ffd45e"><svg viewBox="0 0 24 24"><path d="M12 3l4.5 5L12 21 7.5 8 12 3z" fill="currentColor" opacity=".9"/><path d="M7.5 8h9" stroke="#04060e" stroke-width="1.2"/></svg></div>
+            <div><strong>CAZA Y RECOLECTA</strong><span>El cuerpo de una serpiente caída se convierte en un banquete de orbes.</span></div>
+          </div>
+          <div class="rule">
+            <div class="rule-ico" style="--c:#7c9dff"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-dasharray="3 4"/><path d="M5 19L19 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div>
+            <div><strong>NO CRUCES EL ANILLO</strong><span>El borde de la arena es letal.</span></div>
+          </div>
+        </div>
+
+        <div class="controls-strip desktop-only" id="rulesControls">
+          <span><b>RATÓN</b> girar</span><span class="sep"></span><span><b>CLIC</b> turbo</span><span class="sep"></span><span><b>ESC</b> pausa</span><span class="sep"></span><span><b>M</b> sonido</span>
+        </div>
+        <div class="controls-strip touch-only">
+          <span><b>DEDO</b> arrastra para girar</span><span class="sep"></span><span><b>SUELTA</b> conserva el rumbo</span><span class="sep"></span><span><b>PAUSA</b> arriba a la derecha</span>
+        </div>
+        <button id="rulesPlay" class="btn primary wide" type="button">A JUGAR</button>
+      </div>
+    </section>
+
+    <!-- ══════════════ COMPRAR ══════════════ -->
+    <section id="buyScreen" class="screen modal-screen">
+      <div class="modal buy-modal glass">
+        <canvas id="buyPreview" width="640" height="280" aria-hidden="true"></canvas>
+        <div class="buy-glow" id="buyGlow"></div>
+        <div class="buy-body">
+          <div class="kicker tiny"><span class="kicker-line"></span>NUEVA PIEL<span class="kicker-line"></span></div>
+          <h2 id="buyName">—</h2>
+          <div class="buy-price"><span class="coin-icon"></span><span id="buyPrice">0</span><em>PUNTOS</em></div>
+          <p class="buy-note" id="buyNote">—</p>
+          <div class="buy-actions">
+            <button id="buyCancel" class="btn ghost" type="button">CANCELAR</button>
+            <button id="buyConfirm" class="btn primary" type="button">CANJEAR</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════ PAUSA ══════════════ -->
+    <section id="pauseScreen" class="screen modal-screen">
+      <div class="modal pause-modal glass">
+        <div class="kicker tiny"><span class="kicker-line"></span>SEÑAL CONGELADA<span class="kicker-line"></span></div>
+        <h2>PAUSA</h2>
+        <div class="pause-stats">
+          <div><span>MASA</span><strong id="pauseScore">0</strong></div>
+          <div><span>BAJAS</span><strong id="pauseKills">0</strong></div>
+          <div><span>TIEMPO</span><strong id="pauseTime">0:00</strong></div>
+        </div>
+        <div class="pause-actions">
+          <button id="resumeBtn" class="btn primary wide" type="button">CONTINUAR</button>
+          <button id="quitBtn" class="btn ghost wide" type="button">ABANDONAR</button>
+        </div>
+        <div class="pause-options">
+          <button class="icon-btn" id="muteBtnPause" type="button" aria-label="Silenciar sonido">
+            <svg class="ico-sound" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/>
+              <path class="wave" d="M16 8.5a5 5 0 0 1 0 7M18.8 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+              <path class="slash" d="M4 4l16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <button id="rulesBtnPause" class="link-btn small" type="button">REGLAS</button>
+          <span class="pause-tip">ESC PARA SEGUIR</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════ MUERTE ══════════════ -->
+    <section id="deathScreen" class="screen death-screen">
+      <div class="death-card">
+        <div class="death-glow" aria-hidden="true"></div>
+        <div class="kicker tiny danger"><span class="kicker-line"></span>MASA LIBERADA<span class="kicker-line"></span></div>
+        <h2>HAS CAÍDO</h2>
+        <div class="death-cause" id="deathCause">DEVORADO POR EL VACÍO</div>
+
+        <div class="death-score"><span>MASA FINAL</span><strong id="deathScore">0</strong></div>
+        <div class="new-record" id="newRecord">¡NUEVO RÉCORD!</div>
+
+        <div class="death-stats">
+          <div><span>DEVORADO</span><strong id="deathCoins">0</strong></div>
+          <div><span>BAJAS</span><strong id="deathKills">0</strong></div>
+          <div><span>TIEMPO</span><strong id="deathTime">0:00</strong></div>
+        </div>
+        <div class="death-earn"><span class="coin-icon"></span><span>+<b id="deathEarned">0</b> PUNTOS</span></div>
+
+        <div class="death-actions">
+          <button id="retryBtn" class="btn primary" type="button">OTRA VEZ</button>
+          <button id="homeBtn" class="btn ghost" type="button">MENÚ</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="toast" class="toast" role="status"></div>
+    <div id="flash" class="flash" aria-hidden="true"></div>
+  </div>
+
+  <script src="js/skins.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
