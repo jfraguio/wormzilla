@@ -142,9 +142,6 @@
     if (!active && document.activeElement && hud.contains(document.activeElement)) {
       try { document.activeElement.blur(); } catch (err) { /* noop */ }
     }
-    if (mode !== 'playing') {
-      /* sin turbo táctil */
-    }
     if (mode === 'dying') {
       hint.classList.add('fade');
       clearTimeout(hintTimer);
@@ -180,7 +177,7 @@
 
   function controlHintText() {
     return game.touchMode
-      ? 'APOYA EL DEDO Y ARRASTRA PARA GIRAR'
+      ? 'DOBLE TOQUE Y MANTÉN PARA TURBO · ARRASTRA PARA GIRAR'
       : 'MUEVE EL RATÓN · MANTÉN PULSADO PARA TURBO';
   }
 
@@ -188,7 +185,7 @@
     const tip = $('menuTip');
     if (tip) {
       tip.textContent = game.touchMode
-        ? 'APOYA EL DEDO Y ARRASTRA · SIN TURBO'
+        ? 'ARRASTRA PARA GIRAR · DOBLE TOQUE Y MANTÉN PARA TURBO'
         : 'MUEVE EL RATÓN · MANTÉN PULSADO PARA TURBO';
     }
     if (game.mode === 'playing') hintText.textContent = controlHintText();

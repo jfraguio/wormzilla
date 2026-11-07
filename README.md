@@ -8,7 +8,7 @@
 
 ## Cómo jugar
 
-- **Tablet**: apoya un dedo en la pantalla y arrástralo para girar. Al soltar, la serpiente conserva el rumbo. Sin turbo táctil. Las habilidades activas se lanzan con el **botón PODER** que aparece sobre el minimapa.
+- **Tablet**: apoya un dedo en la pantalla y arrástralo para girar. Haz **doble toque y mantén** para acelerar; puedes seguir girando con el dedo y al levantarlo dejas de acelerar. Las habilidades activas se lanzan con el **botón PODER** que aparece sobre el minimapa.
 - **Ratón**: mueve el cursor para girar. Mantén pulsado para turbo. Pulsa **E** para usar el poder activo.
 - **Teclado**: flechas o WASD para girar; espacio para turbo; E para poder; Esc para pausa; M para silenciar.
 

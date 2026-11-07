@@ -137,6 +137,7 @@
       this.pointer = {
         x: 0, y: 0, inside: false, down: false,
         touchActive: false, touchId: -1,
+        touchBoostHeld: false, lastTapAt: 0, lastTapX: 0, lastTapY: 0,
         anchorX: 0, anchorY: 0, x2: 0, y2: 0, moved: false
       };
       this.keys = new Set();
@@ -296,6 +297,8 @@
       this.keys.clear();
       this.pointer.down = false;
       this.pointer.touchActive = false;
+      this.pointer.touchBoostHeld = false;
+      this.pointer.lastTapAt = 0;
       this.audio.setDucked(false);
       this.audio.setBoost(false);
       this.boostAudioOn = false;
@@ -310,6 +313,7 @@
       this.boostAudioOn = false;
       this.pointer.down = false;
       this.pointer.touchActive = false;
+      this.pointer.touchBoostHeld = false;
       this.pointer.touchId = -1;
     }
 
@@ -319,6 +323,7 @@
       this.audio.setDucked(false);
       this.pointer.down = false;
       this.pointer.touchActive = false;
+      this.pointer.touchBoostHeld = false;
       this.pointer.touchId = -1;
     }
 
@@ -402,6 +407,11 @@
       this.edgeWarning = 0;
       this.shake = 0;
       this.spawnedNames.clear();
+      this.pointer.down = false;
+      this.pointer.touchActive = false;
+      this.pointer.touchBoostHeld = false;
+      this.pointer.touchId = -1;
+      this.pointer.lastTapAt = 0;
       if (this.hash) this.hash.clear();
       if (this.foodGrid) this.foodGrid.clear();
       this.foodGridTimer = 0;
@@ -1019,6 +1029,7 @@
       if (this.mode !== 'playing') return false;
       if (this.keys.has('Space')) return true;
       if (!this.touchMode && this.pointer.down) return true;
+      if (this.touchMode && this.pointer.touchActive && this.pointer.touchBoostHeld) return true;
       return false;
     }
 
@@ -4292,6 +4303,9 @@
       global.addEventListener('blur', () => {
         this.keys.clear();
         this.pointer.down = false;
+        this.pointer.touchActive = false;
+        this.pointer.touchBoostHeld = false;
+        this.pointer.touchId = -1;
         this.audio.setBoost(false);
         this.boostAudioOn = false;
       });
@@ -4328,6 +4342,16 @@
       if (el && el.closest && el.closest('button, a, input, textarea, select, .screen.open')) return;
       if (e.pointerType === 'touch') {
         if (this.mode === 'playing') {
+          /* Un segundo dedo no roba el control mientras se mantiene el primero. */
+          if (this.pointer.touchActive && this.pointer.touchId !== e.pointerId) return;
+
+          const now = performance.now();
+          const tapDx = e.clientX - this.pointer.lastTapX;
+          const tapDy = e.clientY - this.pointer.lastTapY;
+          const doubleTap = this.pointer.lastTapAt > 0 &&
+            now - this.pointer.lastTapAt < 330 &&
+            tapDx * tapDx + tapDy * tapDy < 70 * 70;
+
           this.pointer.touchActive = true;
           this.pointer.touchId = e.pointerId;
           this.pointer.anchorX = e.clientX;
@@ -4337,6 +4361,17 @@
           this.pointer.x = e.clientX;
           this.pointer.y = e.clientY;
           this.pointer.moved = false;
+          this.pointer.touchBoostHeld = doubleTap;
+          if (doubleTap) {
+            this.pointer.lastTapAt = 0;
+            if (this.player && this.player.alive && this.player.mass > 12) {
+              this._addFloat(this.player.x, this.player.y - this.player.radius * 2.2, 'TURBO', '#b9ff3d', false);
+            }
+          } else {
+            this.pointer.lastTapAt = now;
+          }
+          this.pointer.lastTapX = e.clientX;
+          this.pointer.lastTapY = e.clientY;
           e.preventDefault();
         }
       } else {
@@ -4359,6 +4394,7 @@
         this.lastTouchAt = performance.now();
         if (this.pointer.touchActive && e.pointerId === this.pointer.touchId) {
           this.pointer.touchActive = false;
+          this.pointer.touchBoostHeld = false;
           this.pointer.touchId = -1;
         }
       } else {
