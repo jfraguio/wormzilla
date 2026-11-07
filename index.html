@@ -57,6 +57,15 @@
         </div>
       </div>
 
+      <div class="threat" id="threat" aria-live="polite">
+        <div class="threat-kicker" id="threatKicker">AMENAZA</div>
+        <div class="threat-timer" id="threatTimer">0:00</div>
+        <div class="threat-bar"><i id="threatFill"></i></div>
+        <div class="threat-text" id="threatText">HUYE DEL MONSTRUO</div>
+      </div>
+
+      <div class="buffs" id="buffBar" aria-live="polite"></div>
+
       <div class="hud-bottom">
         <div class="hint glass" id="hint">
           <span class="hint-ico" aria-hidden="true"></span>
@@ -233,6 +242,22 @@
             <div><strong>CAZA Y RECOLECTA</strong><span>El cuerpo de una serpiente caída se convierte en un banquete de orbes.</span></div>
           </div>
           <div class="rule">
+            <div class="rule-ico" style="--c:#57ff9a"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.3-3 7-7 9-4-2-7-4.7-7-9V6l7-3z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8.6 12.2l2.2 2.2 4.6-4.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <div><strong>PREMIOS ENTRE ORBES</strong><span>Inmunidad, magnetismo, furia o un rayo que fríe a la serpiente más cercana.</span></div>
+          </div>
+          <div class="rule">
+            <div class="rule-ico" style="--c:#ff4f70"><svg viewBox="0 0 24 24"><path d="M4 18c2.2-1.4 3.8-3.8 4.2-7C8.5 7.4 10.7 5 13.5 5c2.9 0 5 2.3 5 5.2 0 3.2-2.2 5.6-5.4 6.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="14.2" cy="9.4" r="1.3" fill="currentColor"/><path d="M8.2 18l-2 2M12 18l-1 2M15.8 18l1 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+            <div><strong>HUYE DEL MONSTRUO</strong><span>Cada cierto tiempo aparece una bestia. Aguanta su cuenta atrás y escapa para llevarte el botín.</span></div>
+          </div>
+          <div class="rule">
+            <div class="rule-ico" style="--c:#c06bff"><svg viewBox="0 0 24 24"><path d="M4 15c2.5-6 5 6 8 0s4 1 8-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M17 5l1 2.2 2.2 1-2.2 1L17 11.4l-1-2.2-2.2-1 2.2-1L17 5z" fill="currentColor"/></svg></div>
+            <div><strong>ESTELAS VIVAS</strong><span>Cada efecto libera una habilidad automática con recarga. Las otras serpientes también las usan.</span></div>
+          </div>
+          <div class="rule">
+            <div class="rule-ico" style="--c:#b9ff3d"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".5"/><path d="M12 7v5l3.5 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 2v2M22 12h-2M12 22v-2M2 12h2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div>
+            <div><strong>AGUANTA Y GANA</strong><span>Cada 30 s de partida recibes bonus, botín y premios. Sobrevivir paga.</span></div>
+          </div>
+          <div class="rule">
             <div class="rule-ico" style="--c:#7c9dff"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-dasharray="3 4"/><path d="M5 19L19 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div>
             <div><strong>NO CRUCES EL ANILLO</strong><span>El borde de la arena es letal.</span></div>
           </div>
@@ -311,6 +336,7 @@
           <div><span>DEVORADO</span><strong id="deathCoins">0</strong></div>
           <div><span>BAJAS</span><strong id="deathKills">0</strong></div>
           <div><span>TIEMPO</span><strong id="deathTime">0:00</strong></div>
+          <div><span>HUIDAS</span><strong id="deathEscapes">0</strong></div>
         </div>
         <div class="death-earn"><span class="coin-icon"></span><span>+<b id="deathEarned">0</b> PUNTOS</span></div>
 

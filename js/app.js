@@ -35,6 +35,12 @@
   const powerIco = $('powerIco');
   const powerName = $('powerName');
   const powerCd = $('powerCd');
+  const threatEl = $('threat');
+  const threatKicker = $('threatKicker');
+  const threatTimerEl = $('threatTimer');
+  const threatFill = $('threatFill');
+  const threatText = $('threatText');
+  const buffBar = $('buffBar');
 
   const muteButtons = [$('muteBtn'), $('muteBtnHud'), $('muteBtnPause')];
   const coinEls = [$('menuPoints'), $('skinsPoints'), $('powersPoints')];
@@ -58,6 +64,9 @@
   let lastTouchMode = null;
   let lastPowerIcon = '';
   let lastPowerName = '';
+  let buffSig = '';
+  let buffEls = [];
+  let lastThreatState = '';
 
   const CHECK_SVG = '<svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const LOCK_SVG = '<svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>';
@@ -201,6 +210,11 @@
     hudScore.textContent = WZ.fmt(shownScore);
     hudKills.textContent = '0';
     hudCombo.classList.remove('show');
+    buffSig = '';
+    buffEls = [];
+    buffBar.innerHTML = '';
+    threatEl.classList.remove('show', 'warning', 'hunting', 'retreat');
+    lastThreatState = '';
     hint.classList.remove('fade');
     hintText.textContent = controlHintText();
     clearTimeout(hintTimer);
@@ -596,7 +610,8 @@
 
   /* ═══════════════════ FIN DE PARTIDA ═══════════════════ */
   function onRunEnd(stats, reason) {
-    const coins = Math.max(0, Math.floor(stats.massEaten * 0.5 + stats.kills * 40 + Math.floor(stats.time / 60) * 12));
+    const survival = stats.survivalBonus || 0;
+    const coins = Math.max(0, Math.floor(stats.massEaten * 0.5 + stats.kills * 40 + Math.floor(stats.time / 60) * 12 + survival));
     const previousBest = save.best;
     const newRecord = stats.score > previousBest;
     save.points += coins;
@@ -614,6 +629,7 @@
       $('deathCoins').textContent = WZ.fmt(stats.massEaten);
       $('deathKills').textContent = WZ.fmt(stats.kills);
       $('deathTime').textContent = WZ.timeFmt(stats.time);
+      $('deathEscapes').textContent = WZ.fmt(stats.escapes || 0);
       $('deathEarned').textContent = WZ.fmt(coins);
       $('deathCause').textContent = (stats.cause || 'EL VACÍO').toUpperCase();
       $('newRecord').classList.toggle('hidden', !newRecord);
@@ -701,6 +717,81 @@
       : 'Activar ' + st.name);
   }
 
+  function updateThreat() {
+    const th = game.getThreatState();
+    if (!th) {
+      threatEl.classList.remove('show', 'warning', 'hunting', 'retreat');
+      lastThreatState = '';
+      return;
+    }
+    threatEl.classList.add('show');
+    if (lastThreatState !== th.state) {
+      lastThreatState = th.state;
+      threatEl.classList.remove('warning', 'hunting', 'retreat');
+      threatEl.classList.add(th.state);
+      if (th.state === 'warning') {
+        threatKicker.textContent = 'AMENAZA ENTRANTE';
+        threatText.textContent = 'PREPARA LA HUIDA';
+      } else if (th.state === 'hunting') {
+        threatKicker.textContent = 'OBJETIVO: ESCAPAR';
+        threatText.textContent = 'HUYE DEL MONSTRUO';
+      } else {
+        threatKicker.textContent = 'AMENAZA RETIRADA';
+        threatText.textContent = 'LA BESTIA SE MARCHA';
+      }
+    }
+    threatTimerEl.textContent = Math.max(0, th.timer).toFixed(1) + 's';
+    const ratio = th.total > 0 ? clamp(th.timer / th.total, 0, 1) : 0;
+    threatFill.style.width = (ratio * 100).toFixed(1) + '%';
+    if (th.state === 'hunting') {
+      threatText.textContent = 'DISTANCIA ' + Math.round(th.distance / 10) + 'm · HUYE';
+    }
+  }
+
+  function updateBuffs() {
+    const list = game.getBuffs();
+    const sig = list.map((b) => b.id).join('|');
+    if (sig !== buffSig) {
+      buffSig = sig;
+      if (!list.length) {
+        buffBar.innerHTML = '';
+        buffEls = [];
+      } else {
+        let html = '';
+        for (const b of list) {
+          html += '<div class="buff" data-id="' + b.id + '" style="--c:' + b.color + '">' +
+            '<span class="buff-name">' + b.name + '</span>' +
+            '<span class="buff-time"></span>' +
+            '<i class="buff-bar"><b></b></i>' +
+          '</div>';
+        }
+        buffBar.innerHTML = html;
+        buffEls = Array.prototype.slice.call(buffBar.children);
+      }
+    }
+    for (let i = 0; i < list.length && i < buffEls.length; i++) {
+      const b = list[i];
+      const el = buffEls[i];
+      const timeEl = el.querySelector('.buff-time');
+      const fillEl = el.querySelector('.buff-bar b');
+      if (b.effect) {
+        const ready = !!b.ready;
+        el.classList.toggle('ready', ready);
+        timeEl.textContent = ready ? 'LISTO' : Math.ceil(b.timer) + 's';
+        const p = ready ? 1 : clamp(1 - b.timer / Math.max(0.01, b.total), 0, 1);
+        fillEl.style.setProperty('--p', (p * 100).toFixed(1) + '%');
+      } else {
+        el.classList.remove('ready');
+        const remain = Math.max(0, b.timer);
+        timeEl.textContent = remain >= 10 ? Math.ceil(remain) + 's' : remain.toFixed(1) + 's';
+        const p = clamp(remain / Math.max(0.01, b.total), 0, 1);
+        fillEl.style.setProperty('--p', (p * 100).toFixed(1) + '%');
+      }
+    }
+  }
+
+  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+
   function updateHud(dt, now) {
     if (now - lastHudTick > 85) {
       lastHudTick = now;
@@ -716,6 +807,8 @@
       } else {
         hudCombo.classList.remove('show');
       }
+      updateThreat();
+      updateBuffs();
     }
 
     if (now - lastLbTick > 420) {
@@ -723,7 +816,8 @@
       renderLeaderboard(false);
     }
 
-    if (now - lastMiniTick > 33) {
+    const miniInterval = game.quality < 0.6 ? 58 : 33;
+    if (now - lastMiniTick > miniInterval) {
       lastMiniTick = now;
       game.drawMinimap(minimapCtx);
     }
@@ -889,6 +983,30 @@
     },
     onGoldSpawn() {
       /* El minimapa ya lo revela; sin texto para no romper el ritmo. */
+    },
+    onPickup(def) {
+      const extra = def.id === 'bolt' ? ' · RAYO LANZADO' : ' · EN MARCHA';
+      toast(def.name + extra, true);
+    },
+    onPickupSpawn() {
+      /* El minimapa y el brillo bastan para descubrirlo. */
+    },
+    onSurvival(tier, bonus) {
+      toast('SUPERVIVENCIA · +' + WZ.fmt(bonus) + ' BONUS', true);
+    },
+    onMonsterWarning(seconds) {
+      toast('AMENAZA ENTRANTE · ' + Math.ceil(seconds) + 's');
+    },
+    onMonsterSpawn() {
+      toast('¡HUYE DEL MONSTRUO!');
+      flash(true);
+    },
+    onMonsterEscape(bonus) {
+      toast('HAS ESCAPADO · +' + WZ.fmt(bonus) + ' BONUS', true);
+      flash(false);
+    },
+    onEffectAbility(perk, s) {
+      if (s && s.isPlayer) toast(perk.name + ' · ESTELA');
     }
   };
 

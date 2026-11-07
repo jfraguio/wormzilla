@@ -51,51 +51,83 @@
     {
       id: 'sparks', name: 'CHISPAS', price: 0, rarity: 'EFECTO',
       color: '#eaffff', glow: '#7df9ff', colors: ['#ffffff', '#c8feff', '#7df9ff'],
-      mode: 'spark', rate: 0.075, tag: 'ESTELA',
-      desc: 'DESTELLOS BLANCOS Y CIAN SIGUEN TU ESTELA',
+      mode: 'spark', rate: 0.075, tag: 'ESTELA · DESTELLO',
+      desc: 'DESTELLO QUE ATURDE A LOS RIVALES CERCANOS',
+      perk: { type: 'flash', name: 'DESTELLO', cooldown: 15, radius: 285, stun: 0.95 },
       icon: '<path d="M12 2l1.7 6.1L20 10l-6.3 1.9L12 18l-1.7-6.1L4 10l6.3-1.9L12 2z" fill="currentColor"/>'
     },
     {
       id: 'fire', name: 'PIRO', price: 300, rarity: 'EFECTO',
       color: '#ffb020', glow: '#ff7b22', colors: ['#ffe98a', '#ff9d1f', '#ff3d1f'],
-      mode: 'ember', rate: 0.055, tag: 'ESTELA',
-      desc: 'ASCUAS Y LLAMAS QUE SUBEN DESDE TU COLA',
+      mode: 'ember', rate: 0.055, tag: 'ESTELA · PIROCLASTO',
+      desc: 'PIROCLASTO QUE QUEMA Y TE DA LA MASA DEL RIVAL',
+      perk: { type: 'flare', name: 'PIROCLASTO', cooldown: 14, radius: 245, stun: 1.05, drain: 0.05 },
       icon: '<path d="M12 2c1.4 4.1 5.4 6.5 5.4 11.1A5.4 5.4 0 0 1 12 18.5a5.4 5.4 0 0 1-5.4-5.4C6.6 8.5 10.6 6.1 12 2z" fill="currentColor"/><path d="M12 9c.7 2.1 2.5 3.2 2.5 5.1a2.5 2.5 0 0 1-5 0C9.5 12.2 11.3 11.1 12 9z" fill="#fff3c4" opacity=".85"/>'
     },
     {
       id: 'neon', name: 'NEÓN ELÉCTRICO', price: 450, rarity: 'EFECTO',
       color: '#3df5ff', glow: '#3df5ff', colors: ['#3df5ff', '#ff3ec8', '#fff38a'],
-      mode: 'streak', rate: 0.065, tag: 'ESTELA',
-      desc: 'RAYOS DE LUZ FRÍA Y MAGENTA AL DESLIZARTE',
+      mode: 'streak', rate: 0.065, tag: 'ESTELA · DESCARGA',
+      desc: 'DESCARGA ELÉCTRICA QUE FRENA AL RIVAL MÁS CERCANO',
+      perk: { type: 'zap', name: 'DESCARGA', cooldown: 12, radius: 560, stun: 0.95, drain: 0.04 },
       icon: '<path d="M13.5 2 4 13.2h6.1L9.3 22 20 9.8h-6.2L13.5 2z" fill="currentColor"/>'
     },
     {
       id: 'rainbow', name: 'PRISMA', price: 500, rarity: 'EFECTO',
       color: '#ff6ad5', glow: '#ff6ad5', colors: ['#ff3b5c', '#ffb800', '#28e07a', '#00cfff', '#8b5cff'],
-      mode: 'rainbow', rate: 0.055, tag: 'ESTELA',
-      desc: 'UNA CINTA DE COLORES SE DESHACE TRAS DE TI',
+      mode: 'rainbow', rate: 0.055, tag: 'ESTELA · PRISMA',
+      desc: 'PRISMA: UN INSTANTE DE VELOCIDAD E INMUNIDAD',
+      perk: { type: 'prism', name: 'PRISMA', cooldown: 20, duration: 1.35, speed: 1.3, range: 330 },
       icon: '<path d="M3 17a9 9 0 0 1 18 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6.5 17a5.5 5.5 0 0 1 11 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".65"/><path d="M10 17a2 2 0 0 1 4 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".4"/>'
     },
     {
       id: 'void', name: 'VACÍO', price: 750, rarity: 'EFECTO',
       color: '#8b5cff', glow: '#8b5cff', colors: ['#a98bff', '#ff3ec8', '#4d2bff'],
-      mode: 'void', rate: 0.06, tag: 'ESTELA',
-      desc: 'HECHIZOS OSCUROS Y SUSURROS VIOLETA',
+      mode: 'void', rate: 0.06, tag: 'ESTELA · SINGULARIDAD',
+      desc: 'SINGULARIDAD QUE ABSORBE ORBES Y FRENA RIVALES',
+      perk: { type: 'singularity', name: 'SINGULARIDAD', cooldown: 16, radius: 520, duration: 1.9, slow: 0.55 },
       icon: '<path d="M12 3a9 9 0 1 0 9 9 6 6 0 1 1-6-6 3 3 0 1 1-3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>'
     },
     {
       id: 'orbit', name: 'ÓRBITA', price: 1000, rarity: 'EFECTO',
       color: '#ffd45e', glow: '#ffd45e', colors: ['#7df9ff', '#ffd45e', '#ff6ad5'],
-      mode: 'orbit', rate: 0.12, tag: 'AURA',
-      desc: 'TRES ORBES MÁGICOS GIRAN ALREDEDOR DE TU CABEZA',
+      mode: 'orbit', rate: 0.12, tag: 'AURA · GUARDIÁN',
+      desc: 'GUARDIÁN ORBITAL QUE CASTIGA A QUIEN SE ACERQUE',
+      perk: { type: 'orbitguard', name: 'GUARDIÁN', cooldown: 13, radius: 215, stun: 1.2, drain: 0.05 },
       icon: '<circle cx="12" cy="12" r="3.2" fill="currentColor"/><ellipse cx="12" cy="12" rx="9" ry="4" fill="none" stroke="currentColor" stroke-width="1.3" transform="rotate(-25 12 12)"/><circle cx="19" cy="9" r="1.4" fill="currentColor"/>'
+    }
+  ];
+
+  /* Premios que aparecen entre los orbes. */
+  const PICKUPS = [
+    {
+      id: 'shield', name: 'INMUNIDAD', short: 'ESCUDO', duration: 6.5,
+      color: '#7df9ff', glow: '#3df5ff',
+      desc: 'ESCUDO TEMPORAL: LOS IMPACTOS Y EL MONSTRUO NO TE MATAN'
+    },
+    {
+      id: 'magnet', name: 'MAGNETISMO', short: 'IMÁN', duration: 10,
+      color: '#57ff9a', glow: '#2bff8c',
+      desc: 'ATRAE ORBES Y PREMIOS DESDE MUCHÍSIMO MÁS LEJOS'
+    },
+    {
+      id: 'frenzy', name: 'FURIA', short: 'FURIA', duration: 7,
+      color: '#ff9a3d', glow: '#ff5f2e',
+      desc: 'VELOCIDAD Y GIRO EXTREMOS DURANTE UNOS SEGUNDOS'
+    },
+    {
+      id: 'bolt', name: 'RAYO', short: 'RAYO', duration: 0,
+      color: '#ffe85c', glow: '#ffcb45',
+      desc: 'FRÍE AL INSTANTE A LA SERPIENTE MÁS CERCANA'
     }
   ];
 
   const powerById = Object.create(null);
   const effectById = Object.create(null);
+  const pickupById = Object.create(null);
   for (const p of POWERS) powerById[p.id] = p;
   for (const e of EFFECTS) effectById[e.id] = e;
+  for (const u of PICKUPS) pickupById[u.id] = u;
 
   function getPower(id) {
     return id && id !== 'none' ? (powerById[id] || null) : null;
@@ -103,6 +135,10 @@
 
   function getEffect(id) {
     return id && id !== 'none' ? (effectById[id] || null) : null;
+  }
+
+  function getPickup(id) {
+    return id ? (pickupById[id] || null) : null;
   }
 
   /* Fondo mágico animado para las cartas de poder/efecto. */
@@ -403,7 +439,9 @@
   global.WZ = global.WZ || {};
   global.WZ.POWERS = POWERS;
   global.WZ.EFFECTS = EFFECTS;
+  global.WZ.PICKUPS = PICKUPS;
   global.WZ.getPower = getPower;
   global.WZ.getEffect = getEffect;
+  global.WZ.getPickup = getPickup;
   global.WZ.drawMagicPreview = drawMagicPreview;
 })(window);
