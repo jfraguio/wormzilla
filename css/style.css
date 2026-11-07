@@ -316,7 +316,7 @@ body.mode-dying #scene { cursor: none; }
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
   background: radial-gradient(ellipse at 50% 50%, rgba(4, 8, 18, 0.54), rgba(2, 4, 10, 0.84));
   backdrop-filter: blur(7px);
   -webkit-backdrop-filter: blur(7px);
@@ -995,7 +995,7 @@ body.touch-mode .pause-tip { display: none; }
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
   overflow-y: auto;
   touch-action: pan-y;
   background:

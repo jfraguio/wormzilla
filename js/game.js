@@ -194,6 +194,8 @@
       this.audio.setBoost(false);
       this.boostAudioOn = false;
       this.pointer.down = false;
+      this.pointer.touchActive = false;
+      this.pointer.touchId = -1;
     }
 
     resume() {
@@ -201,6 +203,8 @@
       this.mode = 'playing';
       this.audio.setDucked(false);
       this.pointer.down = false;
+      this.pointer.touchActive = false;
+      this.pointer.touchId = -1;
     }
 
     toMenu() {
