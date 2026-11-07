@@ -2,7 +2,7 @@
 
 **Devora. Crece. Domina.** Un juego web de serpientes en solitario, con estética de arena orbital, música electrónica generativa y progresión guardada en el navegador.
 
-[▶ Jugar online](https://jfraguio.github.io/wormzilla/)
+[▶ Jugar online](https://fraguio.com/wormzilla/)
 
 ![WORMZILLA en tablet](assets/preview.jpg)
 
