@@ -21,6 +21,11 @@
       eye: '#2a0a04', pattern: 'embers', band: 30, trail: 'ember'
     },
     {
+      id: 'glitch', name: 'GLITCH', price: 0, rarity: 'BASE',
+      colors: ['#00fff0', '#ff00d4', '#182bff'], glow: '#00f0ff', accent: '#eaffff',
+      eye: '#04121a', pattern: 'circuit', band: 30, trail: 'spark'
+    },
+    {
       id: 'venom', name: 'VENENO', price: 300, rarity: 'RARA',
       colors: ['#c6ff00', '#8a2be2', '#39ff88'], glow: '#b6ff22', accent: '#f1ffd0',
       eye: '#1a0b2a', pattern: 'dots', band: 40, trail: 'bubble'
@@ -54,17 +59,52 @@
       id: 'solaris', name: 'SOLARIS', price: 4500, rarity: 'MITOLÓGICA',
       colors: ['#ffd34d', '#ff8a00', '#fff2a8'], glow: '#ffc233', accent: '#fff7cf',
       eye: '#2a1604', pattern: 'corona', band: 40, trail: 'spark', accessory: 'crown'
+    },
+    {
+      id: 'candy', name: 'CARAMELO', price: 450, rarity: 'RARA',
+      colors: ['#ff6fb5', '#ffd166', '#5ef1ff'], glow: '#ff8bd0', accent: '#fffbe6',
+      eye: '#2a0a1e', pattern: 'dots', band: 26, trail: 'star'
+    },
+    {
+      id: 'sakura', name: 'SAKURA', price: 650, rarity: 'RARA',
+      colors: ['#ff8fb3', '#ffd6e7', '#b28dff'], glow: '#ff9ec7', accent: '#fff4fb',
+      eye: '#2b0b1d', pattern: 'stars', band: 38, trail: 'spark'
+    },
+    {
+      id: 'zafiro', name: 'ZAFIRO', price: 900, rarity: 'ÉPICA',
+      colors: ['#2f7bff', '#8de9ff', '#133a7a'], glow: '#4aa8ff', accent: '#e8fbff',
+      eye: '#041225', pattern: 'chrome', band: 44, trail: 'wisp'
+    },
+    {
+      id: 'onyx', name: 'ÓNIX', price: 1200, rarity: 'ÉPICA',
+      colors: ['#d9b45b', '#1a1a24', '#8a6a2f'], glow: '#ffcf6a', accent: '#ffe9a8',
+      eye: '#0a0a10', pattern: 'diamonds', band: 30, trail: 'dust'
+    },
+    {
+      id: 'aurora', name: 'AURORA', price: 1600, rarity: 'LEGENDARIA',
+      colors: ['#41ffb0', '#39b7ff', '#b06bff'], glow: '#63ffd0', accent: '#eaffff',
+      eye: '#061a1a', pattern: 'stars', band: 42, trail: 'star'
+    },
+    {
+      id: 'mecha', name: 'MECHA', price: 2100, rarity: 'LEGENDARIA',
+      colors: ['#ff4b3e', '#b8c6d9', '#223344'], glow: '#ff6b4a', accent: '#ffd7c9',
+      eye: '#160706', pattern: 'circuit', band: 34, trail: 'ember'
     }
   ];
 
   const byId = Object.create(null);
   for (const s of SKINS) byId[s.id] = s;
+  const FREE_SKINS = SKINS.filter((s) => s.price === 0).map((s) => s.id);
 
   const SAVE_KEY = 'wormzilla.save.v1';
   const DEFAULT_SAVE = {
     points: 0,
-    unlocked: ['neon', 'viper', 'ember'],
-    selected: 'neon',
+    unlocked: FREE_SKINS.slice(),
+    selected: FREE_SKINS[0] || 'neon',
+    unlockedPowers: [],
+    selectedPower: 'none',
+    unlockedEffects: [],
+    selectedEffect: 'none',
     best: 0,
     games: 0,
     kills: 0,
@@ -73,7 +113,12 @@
   };
 
   function loadSave() {
-    const out = Object.assign({}, DEFAULT_SAVE, { unlocked: DEFAULT_SAVE.unlocked.slice() });
+    const freeEffects = (global.WZ && global.WZ.EFFECTS ? global.WZ.EFFECTS : []).filter((e) => e.price === 0).map((e) => e.id);
+    const out = Object.assign({}, DEFAULT_SAVE, {
+      unlocked: FREE_SKINS.slice(),
+      unlockedEffects: freeEffects.slice(),
+      selectedEffect: freeEffects[0] || 'none'
+    });
     try {
       const raw = global.localStorage.getItem(SAVE_KEY);
       if (raw) {
@@ -87,15 +132,34 @@
           if (typeof data.seenTutorial === 'boolean') out.seenTutorial = data.seenTutorial;
           if (Array.isArray(data.unlocked)) {
             const valid = data.unlocked.filter((id) => byId[id]);
-            if (valid.length) out.unlocked = Array.from(new Set(['neon', 'viper', 'ember'].concat(valid)));
+            out.unlocked = Array.from(new Set(FREE_SKINS.concat(valid)));
           }
           if (typeof data.selected === 'string' && byId[data.selected] && out.unlocked.includes(data.selected)) {
             out.selected = data.selected;
           }
+          if (Array.isArray(data.unlockedPowers)) {
+            const valid = data.unlockedPowers.filter((id) => id !== 'none' && global.WZ.getPower && global.WZ.getPower(id));
+            out.unlockedPowers = Array.from(new Set(valid));
+          }
+          if (typeof data.selectedPower === 'string' && (data.selectedPower === 'none' || out.unlockedPowers.includes(data.selectedPower))) {
+            out.selectedPower = data.selectedPower;
+          }
+          if (Array.isArray(data.unlockedEffects)) {
+            const valid = data.unlockedEffects.filter((id) => global.WZ.getEffect && global.WZ.getEffect(id));
+            out.unlockedEffects = Array.from(new Set(freeEffects.concat(valid)));
+          }
+          if (typeof data.selectedEffect === 'string' && (data.selectedEffect === 'none' || out.unlockedEffects.includes(data.selectedEffect))) {
+            out.selectedEffect = data.selectedEffect;
+          }
         }
       }
     } catch (err) { /* almacenamiento no disponible: memoria */ }
-    if (!out.unlocked.includes(out.selected)) out.selected = 'neon';
+    if (!out.unlocked.includes(out.selected)) out.selected = FREE_SKINS[0] || 'neon';
+    if (out.selectedPower !== 'none' && !out.unlockedPowers.includes(out.selectedPower)) out.selectedPower = 'none';
+    if (out.selectedEffect !== 'none' && !out.unlockedEffects.includes(out.selectedEffect)) {
+      out.selectedEffect = freeEffects[0] || 'none';
+    }
+    if (!out.unlockedEffects.length) out.unlockedEffects = freeEffects.slice();
     return out;
   }
 

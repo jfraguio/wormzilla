@@ -66,6 +66,14 @@
           <canvas id="minimap" width="300" height="300"></canvas>
         </div>
       </div>
+
+      <button class="power-btn" id="powerBtn" type="button" aria-label="Activar poder">
+        <span class="power-ring" aria-hidden="true"></span>
+        <span class="power-ico" id="powerIco" aria-hidden="true"></span>
+        <span class="power-name" id="powerName">PODER</span>
+        <span class="power-cd" id="powerCd"></span>
+        <span class="power-key" aria-hidden="true">E</span>
+      </button>
     </div>
 
     <!-- ══════════════ MENÚ ══════════════ -->
@@ -100,6 +108,10 @@
           <button id="skinsBtn" class="btn ghost" type="button">
             <span class="snake-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 17c0-2.2 1.8-4 4-4h6a4 4 0 0 0 0-8H9" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/><circle cx="9" cy="5" r="1.6" fill="currentColor"/><circle cx="6.2" cy="15.8" r="1.4" fill="currentColor"/></svg></span>
             <span>SERPIENTES</span>
+          </button>
+          <button id="powersBtn" class="btn ghost" type="button">
+            <span class="magic-ico-sm" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8L12 2z" fill="currentColor"/><circle cx="18.5" cy="18" r="2" fill="currentColor" opacity=".75"/></svg></span>
+            <span>PODERES</span>
           </button>
         </div>
 
@@ -136,6 +148,49 @@
       <div id="skinGrid" class="skin-grid"></div>
       <footer class="skins-footer">
         <span class="mono-dim">GANA PUNTOS DEVORANDO MASA Y CAZANDO SERPIENTES</span>
+      </footer>
+    </section>
+
+    <!-- ══════════════ PODERES ══════════════ -->
+    <section id="powersScreen" class="screen skins-screen powers-screen">
+      <header class="sub-top">
+        <button class="icon-btn" id="powersBack" type="button" aria-label="Volver">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="sub-heading">
+          <div class="kicker tiny"><span class="kicker-line"></span>PODERES<span class="kicker-line"></span></div>
+        </div>
+        <div class="coin-pill" title="Puntos disponibles"><span class="coin-icon"></span><span id="powersPoints">0</span></div>
+      </header>
+      <p class="skins-sub">EQUIPA UN PODER Y UN EFECTO · SE GUARDAN EN TU PERFIL</p>
+
+      <div class="loadout glass">
+        <div class="loadout-slot">
+          <span class="loadout-label">PODER</span>
+          <span class="slot-ico" id="slotPowerIcon" aria-hidden="true"></span>
+          <strong id="slotPowerName">NINGUNO</strong>
+          <button class="slot-clear" id="slotPowerClear" type="button" aria-label="Quitar poder">×</button>
+        </div>
+        <div class="loadout-slot">
+          <span class="loadout-label">EFECTO</span>
+          <span class="slot-ico" id="slotEffectIcon" aria-hidden="true"></span>
+          <strong id="slotEffectName">NINGUNO</strong>
+          <button class="slot-clear" id="slotEffectClear" type="button" aria-label="Quitar efecto">×</button>
+        </div>
+      </div>
+
+      <div class="shop-section">
+        <div class="section-head"><span>PODERES</span><em>ACTIVOS Y PASIVOS</em></div>
+        <div id="powerGrid" class="skin-grid power-grid"></div>
+      </div>
+
+      <div class="shop-section">
+        <div class="section-head"><span>EFECTOS</span><em>ESTELAS Y AURAS</em></div>
+        <div id="effectGrid" class="skin-grid power-grid"></div>
+      </div>
+
+      <footer class="skins-footer">
+        <span class="mono-dim">LOS PODERES ACTIVOS SE USAN CON EL BOTÓN PODER O LA TECLA E</span>
       </footer>
     </section>
 
@@ -184,10 +239,10 @@
         </div>
 
         <div class="controls-strip desktop-only" id="rulesControls">
-          <span><b>RATÓN</b> girar</span><span class="sep"></span><span><b>CLIC</b> turbo</span><span class="sep"></span><span><b>ESC</b> pausa</span><span class="sep"></span><span><b>M</b> sonido</span>
+          <span><b>RATÓN</b> girar</span><span class="sep"></span><span><b>CLIC</b> turbo</span><span class="sep"></span><span><b>E</b> poder</span><span class="sep"></span><span><b>ESC</b> pausa</span><span class="sep"></span><span><b>M</b> sonido</span>
         </div>
         <div class="controls-strip touch-only">
-          <span><b>DEDO</b> arrastra para girar</span><span class="sep"></span><span><b>SUELTA</b> conserva el rumbo</span><span class="sep"></span><span><b>PAUSA</b> arriba a la derecha</span>
+          <span><b>DEDO</b> arrastra para girar</span><span class="sep"></span><span><b>SUELTA</b> conserva el rumbo</span><span class="sep"></span><span><b>PODER</b> botón mágico</span><span class="sep"></span><span><b>PAUSA</b> arriba</span>
         </div>
         <button id="rulesPlay" class="btn primary wide" type="button">A JUGAR</button>
       </div>
@@ -198,10 +253,12 @@
       <div class="modal buy-modal glass">
         <canvas id="buyPreview" width="640" height="280" aria-hidden="true"></canvas>
         <div class="buy-glow" id="buyGlow"></div>
+        <div class="buy-icon" id="buyIcon" aria-hidden="true"></div>
         <div class="buy-body">
-          <div class="kicker tiny"><span class="kicker-line"></span>NUEVA PIEL<span class="kicker-line"></span></div>
+          <div class="kicker tiny" id="buyKicker"><span class="kicker-line"></span>NUEVA PIEL<span class="kicker-line"></span></div>
           <h2 id="buyName">—</h2>
           <div class="buy-price"><span class="coin-icon"></span><span id="buyPrice">0</span><em>PUNTOS</em></div>
+          <p class="buy-desc" id="buyDesc"></p>
           <p class="buy-note" id="buyNote">—</p>
           <div class="buy-actions">
             <button id="buyCancel" class="btn ghost" type="button">CANCELAR</button>
@@ -268,6 +325,7 @@
     <div id="flash" class="flash" aria-hidden="true"></div>
   </div>
 
+  <script src="js/powers.js"></script>
   <script src="js/skins.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/game.js"></script>

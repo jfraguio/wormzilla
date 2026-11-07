@@ -13,6 +13,7 @@
   const screens = {
     menu: $('menu'),
     skins: $('skinsScreen'),
+    powers: $('powersScreen'),
     rules: $('rulesScreen'),
     buy: $('buyScreen'),
     pause: $('pauseScreen'),
@@ -30,13 +31,17 @@
   const hintText = $('hintText');
   const flashEl = $('flash');
   const toastEl = $('toast');
+  const powerBtn = $('powerBtn');
+  const powerIco = $('powerIco');
+  const powerName = $('powerName');
+  const powerCd = $('powerCd');
 
   const muteButtons = [$('muteBtn'), $('muteBtnHud'), $('muteBtnPause')];
-  const coinEls = [$('menuPoints'), $('skinsPoints')];
+  const coinEls = [$('menuPoints'), $('skinsPoints'), $('powersPoints')];
 
   let ui = 'menu';
   let rulesContext = 'menu';
-  let buyingSkin = null;
+  let buyingItem = null;
   let toastTimer = 0;
   let hintTimer = 0;
   let lastMode = null;
@@ -44,10 +49,15 @@
   let lastHudTick = 0;
   let lastLbTick = 0;
   let lastMiniTick = 0;
+  let lastPowerTick = 0;
   let previewAcc = 0;
   let audioStarted = false;
   let cardRefs = [];
+  let powerRefs = [];
+  let effectRefs = [];
   let lastTouchMode = null;
+  let lastPowerIcon = '';
+  let lastPowerName = '';
 
   const CHECK_SVG = '<svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const LOCK_SVG = '<svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>';
@@ -181,7 +191,7 @@
     persist();
     hideScreens();
     ui = 'none';
-    game.start(save.selected);
+    game.start(save.selected, save.selectedPower, save.selectedEffect);
     lastMode = 'playing';
     document.body.classList.remove('mode-menu', 'mode-paused', 'mode-dying', 'mode-dead');
     document.body.classList.add('mode-playing');
@@ -272,7 +282,7 @@
     const frag = document.createDocumentFragment();
     cardRefs = [];
 
-    WZ.SKINS.forEach((skin, index) => {
+    WZ.SKINS.slice().sort((a, b) => a.price - b.price).forEach((skin, index) => {
       const card = document.createElement('button');
       card.type = 'button';
       card.className = 'skin-card';
@@ -322,7 +332,7 @@
   function onSkinCard(skin) {
     ensureAudio();
     if (!save.unlocked.includes(skin.id)) {
-      openBuy(skin);
+      openBuy('skin', skin);
       return;
     }
     if (save.selected === skin.id) {
@@ -337,12 +347,165 @@
     toast(skin.name + ' EQUIPADA');
   }
 
-  function openBuy(skin) {
-    buyingSkin = skin;
-    $('buyName').textContent = skin.name;
-    $('buyPrice').textContent = WZ.fmt(skin.price);
-    $('buyGlow').style.background = skin.glow;
-    const missing = skin.price - save.points;
+  /* ── Poderes y efectos ── */
+  function buildPowers() {
+    powerRefs = [];
+    effectRefs = [];
+    buildMagicCards($('powerGrid'), WZ.POWERS, 'power', powerRefs);
+    buildMagicCards($('effectGrid'), WZ.EFFECTS, 'effect', effectRefs);
+    refreshPowers();
+    updateLoadout();
+  }
+
+  function buildMagicCards(grid, list, kind, refs) {
+    const frag = document.createDocumentFragment();
+    list.forEach((item, index) => {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'skin-card magic-card';
+      card.dataset.id = item.id;
+      card.style.setProperty('--glow', item.glow || item.color);
+      card.style.setProperty('--i', String(index));
+      card.title = item.desc || '';
+      card.innerHTML =
+        '<div class="preview-wrap magic-preview"><canvas width="480" height="240"></canvas>' +
+          '<span class="magic-ico">' + svgIcon(item.icon) + '</span>' +
+        '</div>' +
+        '<div class="skin-body">' +
+          '<div><div class="skin-name">' + item.name + '</div>' +
+          '<div class="skin-sub">' + (item.tag || (kind === 'power' ? 'PODER' : 'EFECTO')) + '</div></div>' +
+          '<div class="skin-state"></div>' +
+        '</div>' +
+        '<div class="lock-badge"></div>';
+      const canvas = card.querySelector('canvas');
+      refs.push({
+        card, item, kind, canvas, ctx: canvas.getContext('2d'),
+        state: card.querySelector('.skin-state'), badge: card.querySelector('.lock-badge')
+      });
+      card.addEventListener('click', () => {
+        if (kind === 'power') onPowerCard(item);
+        else onEffectCard(item);
+      });
+      frag.appendChild(card);
+    });
+    grid.appendChild(frag);
+  }
+
+  function svgIcon(inner) {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (inner || '') + '</svg>';
+  }
+
+  function refreshPowers() {
+    const all = powerRefs.concat(effectRefs);
+    for (const ref of all) {
+      const owned = ref.kind === 'power'
+        ? save.unlockedPowers.includes(ref.item.id)
+        : save.unlockedEffects.includes(ref.item.id);
+      const equipped = ref.kind === 'power'
+        ? save.selectedPower === ref.item.id
+        : save.selectedEffect === ref.item.id;
+      ref.card.classList.toggle('owned', owned);
+      ref.card.classList.toggle('equipped', equipped);
+      ref.card.classList.toggle('locked', !owned);
+      if (equipped) {
+        ref.state.innerHTML = '<span class="state-check">' + CHECK_SVG + '</span> EQUIPADO';
+        ref.badge.innerHTML = CHECK_SVG;
+        ref.card.setAttribute('aria-label', ref.item.name + ' equipado');
+      } else if (owned) {
+        ref.state.textContent = 'EQUIPAR';
+        ref.badge.innerHTML = CHECK_SVG;
+        ref.card.setAttribute('aria-label', 'Equipar ' + ref.item.name);
+      } else {
+        ref.state.innerHTML = '<span class="coin-icon"></span>' + WZ.fmt(ref.item.price);
+        ref.badge.innerHTML = LOCK_SVG;
+        ref.card.setAttribute('aria-label', ref.item.name + ', ' + ref.item.price + ' puntos');
+      }
+    }
+  }
+
+  function updateLoadout() {
+    const power = WZ.getPower(save.selectedPower);
+    const effect = WZ.getEffect(save.selectedEffect);
+    const ps = $('slotPowerIcon');
+    const es = $('slotEffectIcon');
+    $('slotPowerName').textContent = power ? power.name : 'NINGUNO';
+    $('slotEffectName').textContent = effect ? effect.name : 'NINGUNO';
+    if (power) {
+      ps.innerHTML = svgIcon(power.icon);
+      ps.style.setProperty('--slot', power.color);
+      ps.style.display = 'flex';
+    } else {
+      ps.innerHTML = '';
+      ps.style.display = 'none';
+    }
+    if (effect) {
+      es.innerHTML = svgIcon(effect.icon);
+      es.style.setProperty('--slot', effect.color);
+      es.style.display = 'flex';
+    } else {
+      es.innerHTML = '';
+      es.style.display = 'none';
+    }
+    $('slotPowerClear').classList.toggle('show', !!power);
+    $('slotEffectClear').classList.toggle('show', !!effect);
+  }
+
+  function onPowerCard(power) {
+    ensureAudio();
+    if (!save.unlockedPowers.includes(power.id)) {
+      openBuy('power', power);
+      return;
+    }
+    if (save.selectedPower === power.id) {
+      audio.click();
+      return;
+    }
+    save.selectedPower = power.id;
+    persist();
+    refreshPowers();
+    updateLoadout();
+    syncPills();
+    audio.click();
+    toast(power.name + ' EQUIPADO');
+  }
+
+  function onEffectCard(effect) {
+    ensureAudio();
+    if (!save.unlockedEffects.includes(effect.id)) {
+      openBuy('effect', effect);
+      return;
+    }
+    if (save.selectedEffect === effect.id) {
+      audio.click();
+      return;
+    }
+    save.selectedEffect = effect.id;
+    persist();
+    refreshPowers();
+    updateLoadout();
+    syncPills();
+    audio.click();
+    toast(effect.name + ' EQUIPADO');
+  }
+
+  function openBuy(kind, item) {
+    buyingItem = { kind, item };
+    const label = kind === 'skin' ? 'NUEVA PIEL' : kind === 'power' ? 'NUEVO PODER' : 'NUEVO EFECTO';
+    $('buyKicker').innerHTML = '<span class="kicker-line"></span>' + label + '<span class="kicker-line"></span>';
+    $('buyName').textContent = item.name;
+    $('buyPrice').textContent = WZ.fmt(item.price);
+    $('buyDesc').textContent = item.desc || '';
+    $('buyGlow').style.background = item.glow || item.color;
+    const iconBox = $('buyIcon');
+    if (kind === 'skin') {
+      iconBox.classList.remove('show');
+      iconBox.innerHTML = '';
+    } else {
+      iconBox.style.setProperty('--glow', item.glow || item.color);
+      iconBox.innerHTML = svgIcon(item.icon);
+      iconBox.classList.add('show');
+    }
+    const missing = item.price - save.points;
     const note = $('buyNote');
     if (missing > 0) {
       note.textContent = 'TE FALTAN ' + WZ.fmt(missing) + ' PUNTOS';
@@ -358,15 +521,20 @@
   }
 
   function closeBuy() {
-    buyingSkin = null;
-    show('skins');
+    const kind = buyingItem ? buyingItem.kind : 'skin';
+    buyingItem = null;
+    show(kind === 'skin' ? 'skins' : 'powers');
     refreshShop();
+    refreshPowers();
+    updateLoadout();
     drawAllPreviews();
+    drawPowerPreviews();
   }
 
   function confirmBuy() {
-    if (!buyingSkin) return;
-    if (save.points < buyingSkin.price) {
+    if (!buyingItem) return;
+    const { kind, item } = buyingItem;
+    if (save.points < item.price) {
       const modal = document.querySelector('.buy-modal');
       modal.classList.remove('shake');
       void modal.offsetWidth;
@@ -374,24 +542,34 @@
       audio.warn();
       return;
     }
-    const skin = buyingSkin;
-    save.points -= skin.price;
-    if (!save.unlocked.includes(skin.id)) save.unlocked.push(skin.id);
-    save.selected = skin.id;
+    save.points -= item.price;
+    if (kind === 'skin') {
+      if (!save.unlocked.includes(item.id)) save.unlocked.push(item.id);
+      save.selected = item.id;
+    } else if (kind === 'power') {
+      if (!save.unlockedPowers.includes(item.id)) save.unlockedPowers.push(item.id);
+      save.selectedPower = item.id;
+    } else {
+      if (!save.unlockedEffects.includes(item.id)) save.unlockedEffects.push(item.id);
+      save.selectedEffect = item.id;
+    }
     persist();
     syncPills();
     refreshShop();
+    refreshPowers();
+    updateLoadout();
     audio.purchase();
-    toast(skin.name + ' DESBLOQUEADA', true);
-    const ref = cardRefs.find((c) => c.skin.id === skin.id);
+    toast(item.name + ' ' + (kind === 'skin' ? 'DESBLOQUEADA' : 'DESBLOQUEADO'), true);
+    const ref = cardRefs.concat(powerRefs, effectRefs).find((c) => (c.item ? c.item.id : c.skin.id) === item.id);
     if (ref) {
       ref.card.classList.remove('unlock-flash');
       void ref.card.offsetWidth;
       ref.card.classList.add('unlock-flash');
     }
-    buyingSkin = null;
-    show('skins');
+    buyingItem = null;
+    show(kind === 'skin' ? 'skins' : 'powers');
     drawAllPreviews();
+    drawPowerPreviews();
   }
 
   function drawAllPreviews() {
@@ -400,11 +578,20 @@
     }
   }
 
+  function drawPowerPreviews() {
+    const all = powerRefs.concat(effectRefs);
+    for (const ref of all) {
+      WZ.drawMagicPreview(ref.ctx, ref.item, ref.canvas.width, ref.canvas.height, game.renderTime);
+    }
+  }
+
   function drawBuyPreview() {
-    if (!buyingSkin) return;
+    if (!buyingItem) return;
+    const { kind, item } = buyingItem;
     const c = $('buyPreview');
     const ctx = c.getContext('2d');
-    WZ.drawSkinPreview(ctx, buyingSkin, c.width, c.height, game.renderTime);
+    if (kind === 'skin') WZ.drawSkinPreview(ctx, item, c.width, c.height, game.renderTime);
+    else WZ.drawMagicPreview(ctx, item, c.width, c.height, game.renderTime);
   }
 
   /* ═══════════════════ FIN DE PARTIDA ═══════════════════ */
@@ -419,6 +606,8 @@
     persist();
     syncPills();
     refreshShop();
+    refreshPowers();
+    updateLoadout();
 
     if (reason === 'death') {
       $('deathScore').textContent = WZ.fmt(stats.score);
@@ -485,6 +674,33 @@
     }
   }
 
+  function updatePowerButton() {
+    const st = game.getPowerState();
+    const activeMode = game.mode === 'playing' || game.mode === 'paused';
+    if (!st || st.kind !== 'active' || !activeMode) {
+      powerBtn.classList.remove('show', 'cooling', 'running');
+      return;
+    }
+    powerBtn.classList.add('show');
+    if (lastPowerIcon !== st.icon) {
+      lastPowerIcon = st.icon;
+      powerIco.innerHTML = svgIcon(st.icon);
+    }
+    if (lastPowerName !== st.name) {
+      lastPowerName = st.name;
+      powerName.textContent = st.name;
+    }
+    const frac = st.cooldownTotal ? Math.min(1, Math.max(0, st.cooldown / st.cooldownTotal)) : 0;
+    powerBtn.style.setProperty('--power', st.color);
+    powerBtn.style.setProperty('--cd', frac.toFixed(3));
+    powerBtn.classList.toggle('cooling', st.cooldown > 0);
+    powerBtn.classList.toggle('running', st.running);
+    powerCd.textContent = st.cooldown > 0 ? String(Math.ceil(st.cooldown)) : '';
+    powerBtn.setAttribute('aria-label', st.cooldown > 0
+      ? st.name + ': ' + Math.ceil(st.cooldown) + ' segundos'
+      : 'Activar ' + st.name);
+  }
+
   function updateHud(dt, now) {
     if (now - lastHudTick > 85) {
       lastHudTick = now;
@@ -512,11 +728,17 @@
       game.drawMinimap(minimapCtx);
     }
 
-    if ((screens.skins.classList.contains('open') || screens.buy.classList.contains('open'))) {
+    if (now - lastPowerTick > 80) {
+      lastPowerTick = now;
+      updatePowerButton();
+    }
+
+    if (screens.skins.classList.contains('open') || screens.powers.classList.contains('open') || screens.buy.classList.contains('open')) {
       previewAcc += dt;
       if (previewAcc > 0.032) {
         previewAcc = 0;
         if (screens.skins.classList.contains('open')) drawAllPreviews();
+        if (screens.powers.classList.contains('open')) drawPowerPreviews();
         if (screens.buy.classList.contains('open')) drawBuyPreview();
       }
     }
@@ -526,6 +748,27 @@
   $('playBtn').addEventListener('click', requestPlay);
   $('skinsBtn').addEventListener('click', () => { ensureAudio(); show('skins'); refreshShop(); drawAllPreviews(); });
   $('skinsBack').addEventListener('click', () => show('menu'));
+  $('powersBtn').addEventListener('click', () => { ensureAudio(); show('powers'); refreshPowers(); updateLoadout(); drawPowerPreviews(); });
+  $('powersBack').addEventListener('click', () => show('menu'));
+  $('slotPowerClear').addEventListener('click', () => {
+    save.selectedPower = 'none';
+    persist();
+    refreshPowers();
+    updateLoadout();
+    audio.click();
+  });
+  $('slotEffectClear').addEventListener('click', () => {
+    save.selectedEffect = 'none';
+    persist();
+    refreshPowers();
+    updateLoadout();
+    audio.click();
+  });
+  powerBtn.addEventListener('click', () => {
+    if (game.mode !== 'playing') return;
+    game.activatePower();
+    updatePowerButton();
+  });
   $('rulesBtn').addEventListener('click', () => openRules('menu'));
   $('rulesBtnPause').addEventListener('click', () => openRules('pause'));
   $('rulesClose').addEventListener('click', closeRules);
@@ -583,8 +826,15 @@
       if (screens.buy.classList.contains('open')) { closeBuy(); e.preventDefault(); return; }
       if (screens.rules.classList.contains('open')) { closeRules(); e.preventDefault(); return; }
       if (screens.skins.classList.contains('open')) { show('menu'); e.preventDefault(); return; }
+      if (screens.powers.classList.contains('open')) { show('menu'); e.preventDefault(); return; }
       if (game.mode === 'paused') { resumeGame(); e.preventDefault(); return; }
       if (game.mode === 'playing') { pauseGame(); e.preventDefault(); return; }
+    }
+    if (e.code === 'KeyE' && game.mode === 'playing') {
+      game.activatePower();
+      updatePowerButton();
+      e.preventDefault();
+      return;
     }
     if (e.code === 'KeyP' && game.mode === 'playing') {
       pauseGame();
@@ -631,6 +881,12 @@
     onEat(value, combo, kind) {
       if (kind === 'gold') toast('ORBE DORADO · +' + WZ.fmt(value), true);
     },
+    onPowerUsed() {
+      flash(false);
+    },
+    onNova() {
+      flash(false);
+    },
     onGoldSpawn() {
       /* El minimapa ya lo revela; sin texto para no romper el ritmo. */
     }
@@ -646,7 +902,7 @@
     const now = performance.now();
     if (game.mode === 'playing' || game.mode === 'paused' || game.mode === 'dying') {
       updateHud(dt, now);
-    } else if (screens.skins.classList.contains('open') || screens.buy.classList.contains('open')) {
+    } else if (screens.skins.classList.contains('open') || screens.powers.classList.contains('open') || screens.buy.classList.contains('open')) {
       updateHud(dt, now);
     }
   };
@@ -655,7 +911,10 @@
   syncMute();
   updateControlCopy();
   buildShop();
+  buildPowers();
   drawAllPreviews();
+  drawPowerPreviews();
+  updateLoadout();
   show('menu');
   lastMode = 'menu';
   lastTouchMode = game.touchMode;

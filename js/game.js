@@ -72,6 +72,14 @@
       this.goldOrb = null;
       this.goldTimer = 14;
       this.foodDeficit = 0;
+      this.power = null;
+      this.effect = null;
+      this.powerCooldown = 0;
+      this.powerTimer = 0;
+      this.powerDuration = 0;
+      this.powerStateId = null;
+      this.powerReadyPinged = true;
+      this.shockwaves = [];
 
       this.cam = { x: 0, y: 0, zoom: 0.8 };
       this.camTarget = { x: 0, y: 0, zoom: 0.8 };
@@ -175,8 +183,8 @@
     }
 
     /* ═══════════════════════ ESTADOS ═══════════════════════ */
-    start(skinId) {
-      this._resetWorld(true, skinId);
+    start(skinId, powerId, effectId) {
+      this._resetWorld(true, skinId, powerId, effectId);
       this.mode = 'playing';
       this.keys.clear();
       this.pointer.down = false;
@@ -241,7 +249,7 @@
     }
 
     /* ═══════════════════════ MUNDO ═══════════════════════ */
-    _resetWorld(withPlayer, skinId) {
+    _resetWorld(withPlayer, skinId, powerId, effectId) {
       this.player = null;
       this.snakes.length = 0;
       this.food.length = 0;
@@ -252,6 +260,14 @@
       this.goldOrb = null;
       this.goldTimer = rand(12, 20);
       this.foodDeficit = 0;
+      this.power = null;
+      this.effect = null;
+      this.powerCooldown = 0;
+      this.powerTimer = 0;
+      this.powerDuration = 0;
+      this.powerStateId = null;
+      this.powerReadyPinged = true;
+      this.shockwaves.length = 0;
       this.combo = 0;
       this.comboTimer = 0;
       this.comboMax = 0;
@@ -273,6 +289,7 @@
         this._createAICohort(3);
         this._spawnPlayer(skin);
         this.mode = 'playing';
+        this._applyLoadout(powerId, effectId);
         if (this.player) {
           this.cam.x = this.camTarget.x = this.player.x;
           this.cam.y = this.camTarget.y = this.player.y;
@@ -285,6 +302,110 @@
         this._chooseMenuFocus(true);
         this.mode = 'menu';
       }
+    }
+
+    _applyLoadout(powerId, effectId) {
+      this.power = (global.WZ && WZ.getPower) ? WZ.getPower(powerId) : null;
+      this.effect = (global.WZ && WZ.getEffect) ? WZ.getEffect(effectId) : null;
+      this.powerCooldown = 0;
+      this.powerTimer = 0;
+      this.powerDuration = 0;
+      this.powerStateId = null;
+      this.powerReadyPinged = true;
+      const p = this.player;
+      if (!p) return;
+      p.radiusScale = 1;
+      p.powerSpeed = 1;
+      p.effectTimer = 0;
+      p.powerMagnet = !!(this.power && this.power.kind === 'passive' && this.power.id === 'magnet');
+    }
+
+    getPowerState() {
+      if (!this.power || !this.player) return null;
+      return {
+        id: this.power.id,
+        name: this.power.name,
+        kind: this.power.kind,
+        icon: this.power.icon,
+        color: this.power.color,
+        glow: this.power.glow,
+        cooldown: this.powerCooldown,
+        cooldownTotal: this.power.cooldown || 0,
+        running: this.powerTimer > 0,
+        timer: this.powerTimer,
+        duration: this.powerDuration,
+        ready: this.powerCooldown <= 0 && this.powerTimer <= 0
+      };
+    }
+
+    activatePower() {
+      if (this.mode !== 'playing' || !this.player || !this.player.alive) return false;
+      const pw = this.power;
+      if (!pw || pw.kind !== 'active') return false;
+      if (this.powerCooldown > 0) {
+        this.audio.warn();
+        return false;
+      }
+      const p = this.player;
+      this.powerCooldown = pw.cooldown || 12;
+      this.powerDuration = pw.duration || 0;
+      this.powerTimer = this.powerDuration;
+      this.powerStateId = this.powerTimer > 0 ? pw.id : null;
+      this.powerReadyPinged = false;
+
+      if (pw.id === 'nova') {
+        this._novaBurst(p, pw);
+      } else {
+        if (pw.id === 'micro' || pw.id === 'titan') {
+          p.radiusScale = pw.scale || 1;
+        } else if (pw.id === 'phantom') {
+          p.radiusScale = 1;
+        }
+        p.powerSpeed = pw.speed || 1;
+        this._spawnParticles(p.x, p.y, pw.glow, 34, 40, 230, 0.35, 0.9, 1.4, 3.4);
+        this._addFloat(p.x, p.y - p.radius * 2, pw.name, pw.color, true);
+      }
+
+      if (this.audio && this.audio.powerActivate) this.audio.powerActivate(pw.id);
+      if (this.callbacks && this.callbacks.onPowerUsed) this.callbacks.onPowerUsed(pw);
+      return true;
+    }
+
+    _novaBurst(p, pw) {
+      const radius = pw.radius || 520;
+      this.shockwaves.push({
+        x: p.x, y: p.y, t: 0, life: 0.9, max: radius + 100, color: pw.glow
+      });
+      this._spawnParticles(p.x, p.y, pw.glow, 64, 60, 430, 0.35, 1.1, 1.6, 4.2);
+      this._spawnParticles(p.x, p.y, '#ffffff', 20, 30, 190, 0.25, 0.6, 1.2, 2.8);
+      this.shake = Math.max(this.shake, 20);
+      let kills = 0;
+      for (const s of this.snakes) {
+        if (s.isPlayer || !s.alive) continue;
+        const dx = s.x - p.x, dy = s.y - p.y;
+        if (dx * dx + dy * dy < radius * radius) {
+          this._killSnake(s, p, 'nova');
+          kills++;
+        }
+      }
+      this._addFloat(p.x, p.y - 34, kills ? 'NOVA ×' + kills : 'NOVA', pw.color, true);
+      if (this.audio && this.audio.powerNova) this.audio.powerNova(kills);
+      if (this.callbacks && this.callbacks.onNova) this.callbacks.onNova(kills);
+    }
+
+    _endPowerEffect() {
+      const p = this.player;
+      if (!p) {
+        this.powerStateId = null;
+        return;
+      }
+      if (this.powerStateId === 'micro' || this.powerStateId === 'titan' || this.powerStateId === 'phantom') {
+        p.radiusScale = 1;
+        p.powerSpeed = 1;
+        this._spawnParticles(p.x, p.y, this.power ? this.power.glow : '#7df9ff', 18, 20, 120, 0.3, 0.7, 1, 2.4);
+        if (this.mode === 'playing' && this.audio && this.audio.powerEnd) this.audio.powerEnd();
+      }
+      this.powerStateId = null;
     }
 
     _createAICohort(bigCount) {
@@ -474,7 +595,11 @@
         boostPulse: 0,
         ai: null,
         growPulse: 0,
-        spawnProtect: 0
+        spawnProtect: 0,
+        radiusScale: 1,
+        powerSpeed: 1,
+        powerMagnet: false,
+        effectTimer: 0
       };
       s.turnRate = 4.55 - clamp((radius - 9) * 0.19, 0, 1.65);
       s.baseSpeed = 192 - radius * 1.55;
@@ -529,6 +654,19 @@
       this._updateParticles(worldDt);
       this._updateFloats(worldDt);
       this._updateGold(worldDt);
+      this._updateShockwaves(dt);
+
+      if (this.powerCooldown > 0) {
+        this.powerCooldown = Math.max(0, this.powerCooldown - dt);
+        if (this.powerCooldown === 0 && !this.powerReadyPinged) {
+          this.powerReadyPinged = true;
+          if (this.mode === 'playing' && this.audio && this.audio.powerReady) this.audio.powerReady();
+        }
+      }
+      if (this.powerTimer > 0) {
+        this.powerTimer = Math.max(0, this.powerTimer - dt);
+        if (this.powerTimer === 0) this._endPowerEffect();
+      }
 
       if (this.comboTimer > 0) {
         this.comboTimer -= dt;
@@ -595,7 +733,7 @@
       const maxTurn = s.turnRate * (boosting ? 0.9 : 1) * dt;
       s.angle += clamp(diff, -maxTurn, maxTurn);
 
-      const speed = s.baseSpeed * (boosting ? 1.68 : 1);
+      const speed = s.baseSpeed * (boosting ? 1.68 : 1) * (s.powerSpeed || 1);
       s.speed = speed;
       s.x += Math.cos(s.angle) * speed * dt;
       s.y += Math.sin(s.angle) * speed * dt;
@@ -643,7 +781,8 @@
       }
 
       if (s.isPlayer) {
-        if (boosting) this._emitBoostTrail(s);
+        if (this.effect) this._emitEffectTrail(s, dt);
+        else if (boosting) this._emitBoostTrail(s);
         else if (Math.random() < dt * 8) this._emitIdleTrail(s);
       } else if (s.ai) {
         s.ai.trailTimer -= dt;
@@ -803,6 +942,78 @@
       return minD;
     }
 
+    _emitEffectTrail(s, dt) {
+      const eff = this.effect;
+      if (!eff) return;
+      s.effectTimer = (s.effectTimer || 0) - dt;
+      if (s.effectTimer > 0) return;
+      s.effectTimer = eff.rate || 0.07;
+      if (!this._inView(s.x, s.y, 500)) return;
+      if (this.particles.length > MAX_PARTICLES - 12) return;
+      const tail = s.points.length ? s.points[s.points.length - 1] : s;
+      const cols = eff.colors || [eff.color, eff.glow];
+      const mode = eff.mode || 'spark';
+      const push = (p) => {
+        p.shape = p.shape || 'dot';
+        p.life = p.life || 0.6;
+        p.max = p.life;
+        p.drag = p.drag === undefined ? 2.2 : p.drag;
+        this.particles.push(p);
+      };
+
+      if (mode === 'orbit') {
+        if (Math.random() < 0.5) return;
+        const c = cols[randInt(0, cols.length - 1)];
+        push({ x: s.x + rand(-8, 8), y: s.y + rand(-8, 8), vx: rand(-8, 8), vy: rand(-18, -4), life: rand(.4, .8), size: rand(.8, 1.7), color: c, drag: 1.2 });
+        return;
+      }
+
+      for (let i = 0; i < (mode === 'ember' ? 2 : 2); i++) {
+        let color = cols[randInt(0, cols.length - 1)];
+        if (mode === 'rainbow') color = cols[Math.floor(this.renderTime * 6 + i) % cols.length];
+        const a = rand(0, TAU);
+        let sp = rand(10, 55);
+        let vx = Math.cos(a) * sp;
+        let vy = Math.sin(a) * sp;
+        let size = rand(1, 2.2);
+        let life = rand(.35, .75);
+        let shape = 'dot';
+        let drag = 2.4;
+        if (mode === 'ember') {
+          vx = rand(-14, 14);
+          vy = rand(-48, -18);
+          size = rand(1.4, 3);
+          life = rand(.65, 1.15);
+          drag = .9;
+        } else if (mode === 'void') {
+          sp = rand(4, 26);
+          size = rand(1.8, 3.8);
+          life = rand(.8, 1.4);
+          drag = .5;
+        } else if (mode === 'streak') {
+          vx = Math.cos(s.angle + Math.PI + rand(-1, 1)) * rand(35, 110);
+          vy = Math.sin(s.angle + Math.PI + rand(-1, 1)) * rand(35, 110);
+          size = rand(1.1, 2.2);
+          life = rand(.22, .42);
+          shape = 'streak';
+          drag = 2.8;
+        } else if (mode === 'rainbow') {
+          vx = Math.cos(a) * rand(8, 42);
+          vy = Math.sin(a) * rand(8, 42);
+          size = rand(1.2, 2.6);
+          life = rand(.5, 1);
+        }
+        push({
+          x: tail.x + rand(-5, 5),
+          y: tail.y + rand(-5, 5),
+          vx, vy, size, life, shape, drag, color
+        });
+      }
+      if (mode === 'void' && Math.random() < 0.3) {
+        push({ x: tail.x, y: tail.y, vx: rand(-6, 6), vy: rand(-20, -6), life: rand(.8, 1.5), size: rand(3, 5), shape: 'dot', drag: .4, color: cols[0] });
+      }
+    }
+
     _emitBoostTrail(s) {
       const p = s.points.length ? s.points[Math.min(s.points.length - 1, 3)] : s;
       const col = s.skin.colors[randInt(0, s.skin.colors.length - 1)];
@@ -840,9 +1051,10 @@
 
     _headBodyHit(s) {
       if (!s.alive) return null;
+      const sRadius = s.radius * (s.radiusScale || 1);
       const cx = Math.floor(s.x / CELL);
       const cy = Math.floor(s.y / CELL);
-      const reach = s.radius + 34;
+      const reach = sRadius + 34;
       const cells = Math.ceil(reach / CELL) + 1;
       for (let ox = -cells; ox <= cells; ox++) {
         for (let oy = -cells; oy <= cells; oy++) {
@@ -852,13 +1064,17 @@
             const p = arr[i];
             const owner = p.owner;
             if (!owner || owner === s || !owner.alive) continue;
-            const threshold = s.radius * 0.57 + owner.radius * 0.82;
+            const threshold = sRadius * 0.57 + owner.radius * (owner.radiusScale || 1) * 0.82;
             const dx = p.x - s.x, dy = p.y - s.y;
             if (dx * dx + dy * dy < threshold * threshold) return owner;
           }
         }
       }
       return null;
+    }
+
+    _isPhantom(s) {
+      return !!(s && s.isPlayer && this.powerStateId === 'phantom' && this.powerTimer > 0);
     }
 
     _handleCollisions() {
@@ -868,11 +1084,15 @@
       for (let i = 0; i < alive.length; i++) {
         const a = alive[i];
         if (!a.alive) continue;
+        if (this._isPhantom(a)) continue;
         for (let j = i + 1; j < alive.length; j++) {
           const b = alive[j];
           if (!b.alive) continue;
           if ((a.isPlayer && a.spawnProtect > 0) || (b.isPlayer && b.spawnProtect > 0)) continue;
-          const rr = (a.radius + b.radius) * 0.56;
+          if (this._isPhantom(b)) continue;
+          const ra = a.radius * (a.radiusScale || 1);
+          const rb = b.radius * (b.radiusScale || 1);
+          const rr = (ra + rb) * 0.56;
           if (dist2(a.x, a.y, b.x, b.y) < rr * rr) {
             this._killSnake(a, b, 'head');
             this._killSnake(b, a, 'head');
@@ -883,9 +1103,11 @@
       /* Cabeza contra cuerpo */
       for (const s of this.snakes) {
         if (!s.alive) continue;
+        if (this._isPhantom(s)) continue;
         const owner = this._headBodyHit(s);
         if (owner && owner.alive && s.alive) {
           if (s.spawnProtect > 0 || owner.spawnProtect > 0) continue;
+          if (this._isPhantom(owner)) continue;
           this._killSnake(s, owner, 'body');
         }
       }
@@ -933,8 +1155,8 @@
       const near = this.player ? dist2(s.x, s.y, this.player.x, this.player.y) < 1100 * 1100 : false;
       if (killer && killer.isPlayer) {
         this.runStats.kills++;
-        this._addFloat(s.x, s.y, 'BAJA', '#ff6ad5', true);
-        if (near) {
+        if (reason !== 'nova') this._addFloat(s.x, s.y, 'BAJA', '#ff6ad5', true);
+        if (near && reason !== 'nova') {
           this.audio.kill(this._panFor(s.x));
           this.shake = 9;
         }
@@ -943,7 +1165,7 @@
         this.audio.kill(this._panFor(s.x) * 0.5);
         this.shake = 5;
       }
-      this._explode(s, 46);
+      this._explode(s, reason === 'nova' ? 66 : 46);
       this._spawnLoot(s);
       this.respawns.push({ t: rand(2.2, 5.6) });
     }
@@ -1079,10 +1301,23 @@
 
         if (o.kind === 'gold') {
           o.phase += dt * 1.7;
+          if (player) {
+            const pR = player.radius * (player.radiusScale || 1);
+            const magR = player.powerMagnet && this.power ? (this.power.magnetRadius || 2.3) : 1;
+            const pullR = (pR * 4.4 + o.r * 2.2) * magR;
+            const dx = player.x - o.x, dy = player.y - o.y;
+            const d2 = dx * dx + dy * dy;
+            if (d2 < pullR * pullR && d2 > 64) {
+              const d = Math.sqrt(d2);
+              const f = (1 - d / pullR) * 620 * (player.powerMagnet ? (this.power.magnetPull || 1.45) : 1) * dt;
+              o.x += (dx / d) * f;
+              o.y += (dy / d) * f;
+            }
+          }
           let eater = null;
           for (let h = 0; h < heads.length; h++) {
             const s = heads[h];
-            const rr = s.radius * 0.92 + o.r + 6;
+            const rr = s.radius * (s.radiusScale || 1) * 0.92 + o.r + 6;
             const dx = o.x - s.x, dy = o.y - s.y;
             if (dx * dx + dy * dy < rr * rr) { eater = s; break; }
           }
@@ -1117,12 +1352,15 @@
 
         /* Imán del jugador */
         if (player) {
-          const pullR = player.radius * 4.4 + o.r * 2.2;
+          const pR = player.radius * (player.radiusScale || 1);
+          const magMul = player.powerMagnet && this.power ? (this.power.magnetRadius || 2.3) : 1;
+          const pullStrength = player.powerMagnet && this.power ? (this.power.magnetPull || 1.45) : 1;
+          const pullR = (pR * 4.4 + o.r * 2.2) * magMul;
           const dx = player.x - o.x, dy = player.y - o.y;
           const d2 = dx * dx + dy * dy;
           if (d2 < pullR * pullR && d2 > 64) {
             const d = Math.sqrt(d2);
-            const f = (1 - d / pullR) * 620 * dt;
+            const f = (1 - d / pullR) * 620 * pullStrength * dt;
             o.x += (dx / d) * f;
             o.y += (dy / d) * f;
           }
@@ -1131,7 +1369,7 @@
         let eater = null;
         for (let h = 0; h < heads.length; h++) {
           const s = heads[h];
-          const rr = s.radius * 0.92 + o.r + 6;
+          const rr = s.radius * (s.radiusScale || 1) * 0.92 + o.r + 6;
           const dx = o.x - s.x, dy = o.y - s.y;
           if (dx * dx + dy * dy < rr * rr) { eater = s; break; }
         }
@@ -1204,6 +1442,7 @@
           max: lifeMax,
           size: rand(sizeMin, sizeMax),
           color,
+          shape: 'dot',
           drag: drag === undefined ? 2.6 : drag
         });
       }
@@ -1227,6 +1466,38 @@
         p.vx *= d;
         p.vy *= d;
       }
+    }
+
+    _updateShockwaves(dt) {
+      for (let i = this.shockwaves.length - 1; i >= 0; i--) {
+        const w = this.shockwaves[i];
+        w.t += dt;
+        if (w.t >= w.life) this.shockwaves.splice(i, 1);
+      }
+    }
+
+    _drawShockwaves(ctx) {
+      if (!this.shockwaves.length) return;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (const w of this.shockwaves) {
+        const k = clamp(w.t / w.life, 0, 1);
+        const ease = 1 - Math.pow(1 - k, 3);
+        const r = 24 + w.max * ease;
+        ctx.globalAlpha = (1 - k) * 0.9;
+        ctx.strokeStyle = w.color;
+        ctx.lineWidth = 10 * (1 - k) + 1;
+        ctx.beginPath();
+        ctx.arc(w.x, w.y, r, 0, TAU);
+        ctx.stroke();
+        ctx.globalAlpha = (1 - k) * 0.35;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(w.x, w.y, r * 0.78, 0, TAU);
+        ctx.stroke();
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1;
     }
 
     _addFloat(x, y, text, color, big) {
@@ -1278,7 +1549,7 @@
         this.camTarget.x = p.x + Math.cos(p.angle) * lead;
         this.camTarget.y = p.y + Math.sin(p.angle) * lead;
         const base = clamp(Math.min(this.w, this.h) / 900, 0.68, 1.15);
-        const growth = Math.pow(11.6 / p.radius, 0.62);
+        const growth = Math.pow(11.6 / (p.radius * (p.radiusScale || 1)), 0.62);
         this.camTarget.zoom = base * clamp(growth, 0.52, 1.08);
       }
 
@@ -1536,14 +1807,14 @@
       /* Aura del jugador */
       if (this.player && this.player.alive) {
         const p = this.player;
-        const size = p.radius * 15;
+        const size = p.radius * (p.radiusScale || 1) * 15;
         b.globalAlpha = 0.55;
         b.drawImage(this._glowSprite(p.skin.glow), p.x - size / 2, p.y - size / 2, size, size);
         if (p.boostPulse > 0) {
           b.globalAlpha = 0.4 * p.boostPulse;
           b.fillStyle = p.skin.glow;
           b.beginPath();
-          b.arc(p.x, p.y, p.radius * (1.6 + (1 - p.boostPulse) * 2.4), 0, TAU);
+          b.arc(p.x, p.y, p.radius * (p.radiusScale || 1) * (1.6 + (1 - p.boostPulse) * 2.4), 0, TAU);
           b.fill();
         }
       }
@@ -1557,8 +1828,9 @@
       const pts = this._spine(s);
       const n = pts.length;
       if (n < 2) return;
+      const R = s.radius * (s.radiusScale || 1);
       b.strokeStyle = WZ.rgba(s.skin.glow, 0.17);
-      b.lineWidth = s.radius * 2.5;
+      b.lineWidth = R * 2.5;
       b.beginPath();
       b.moveTo(pts[0].x, pts[0].y);
       for (let i = 1; i < n; i += 2) b.lineTo(pts[i].x, pts[i].y);
@@ -1566,13 +1838,13 @@
       b.stroke();
 
       b.strokeStyle = WZ.rgba(s.skin.glow, 0.075);
-      b.lineWidth = s.radius * 4.2;
+      b.lineWidth = R * 4.2;
       b.beginPath();
       b.moveTo(pts[0].x, pts[0].y);
       for (let i = 1; i < n; i += 3) b.lineTo(pts[i].x, pts[i].y);
       b.stroke();
 
-      const hg = s.radius * (s.skin.bigHead ? 6.2 : 4.2);
+      const hg = R * (s.skin.bigHead ? 6.2 : 4.2);
       b.globalAlpha = 0.42;
       b.drawImage(this._glowSprite(s.skin.glow), s.x - hg / 2, s.y - hg / 2, hg, hg);
       b.globalAlpha = 1;
@@ -1600,6 +1872,7 @@
       this._drawBoundary(ctx);
       this._drawFood(ctx);
       this._drawSnakes(ctx);
+      this._drawShockwaves(ctx);
       this._drawParticles(ctx);
       this._drawFloats(ctx);
       ctx.restore();
@@ -1823,32 +2096,104 @@
       }
     }
 
+    _drawEffectRibbon(ctx, s, pts, R) {
+      const eff = this.effect;
+      if (!eff) return;
+      const n = pts.length;
+      if (n < 4) return;
+      const tail = pts[n - 1];
+      const prev = pts[Math.max(0, n - 16)];
+      const ang = Math.atan2(tail.y - prev.y, tail.x - prev.x);
+      const nx = Math.cos(ang + Math.PI / 2);
+      const ny = Math.sin(ang + Math.PI / 2);
+      const len = 100 + Math.min(230, (s.speed || 0) * 0.75);
+      const colors = eff.colors || [eff.color, eff.glow];
+      const t = this.renderTime;
+      const phase = s.phase || 0;
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      const passes = Math.max(2, Math.min(4, colors.length));
+      for (let p = 0; p < passes; p++) {
+        const path = new Path2D();
+        const samples = 13;
+        for (let i = 0; i < samples; i++) {
+          const k = i / (samples - 1);
+          const d = k * len;
+          const sway = Math.sin(k * 4.4 + t * (eff.mode === 'void' ? 2.2 : 4.6) + phase + p * 1.7) * (1 - k) * (eff.mode === 'streak' ? 8 : 13);
+          const x = tail.x + Math.cos(ang) * d + nx * sway * (p === 0 ? 1 : 0.55 + p * 0.16);
+          const y = tail.y + Math.sin(ang) * d + ny * sway * (p === 0 ? 1 : 0.55 + p * 0.16);
+          if (i === 0) path.moveTo(x, y); else path.lineTo(x, y);
+        }
+        const endX = tail.x + Math.cos(ang) * len;
+        const endY = tail.y + Math.sin(ang) * len;
+        const grad = ctx.createLinearGradient(tail.x, tail.y, endX, endY);
+        const c0 = colors[p % colors.length];
+        const c1 = colors[(p + 1) % colors.length];
+        grad.addColorStop(0, WZ.rgba(c0, eff.mode === 'void' ? 0.36 : 0.48));
+        grad.addColorStop(0.45, WZ.rgba(c1, 0.2));
+        grad.addColorStop(1, WZ.rgba(c1, 0));
+        ctx.strokeStyle = grad;
+        ctx.globalAlpha = 1;
+        ctx.lineWidth = Math.max(1.2, R * (1.1 - p * 0.22));
+        ctx.stroke(path);
+      }
+
+      if (eff.mode === 'streak') {
+        ctx.globalAlpha = 0.55;
+        ctx.strokeStyle = colors[0];
+        ctx.lineWidth = 1.2;
+        ctx.setLineDash([8, 14]);
+        ctx.lineDashOffset = -t * 42;
+        const path = new Path2D();
+        for (let i = 0; i < 10; i++) {
+          const k = i / 9;
+          const x = tail.x + Math.cos(ang) * k * len + nx * Math.sin(k * 7 + t * 7) * 8;
+          const y = tail.y + Math.sin(ang) * k * len + ny * Math.sin(k * 7 + t * 7) * 8;
+          if (i === 0) path.moveTo(x, y); else path.lineTo(x, y);
+        }
+        ctx.stroke(path);
+        ctx.setLineDash([]);
+      }
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    }
+
     _drawSnakeBody(ctx, s) {
       const pts = this._spine(s);
       const n = pts.length;
       if (n < 3) return;
       const skin = s.skin;
-      const R = s.radius;
-      const ghost = !!skin.ghost;
+      const phantom = this._isPhantom(s);
+      const ghost = !!skin.ghost || phantom;
+      const alphaBase = phantom ? 0.55 : ghost ? 0.82 : 1;
+      const R = s.radius * (s.radiusScale || 1);
       const mainEnd = Math.max(2, Math.min(n - 1, Math.floor(n * 0.86)));
+
+      if (s.isPlayer && this.effect && this.effect.mode !== 'orbit') {
+        this._drawEffectRibbon(ctx, s, pts, R);
+      }
 
       const path = new Path2D();
       path.moveTo(pts[0].x, pts[0].y);
       for (let i = 1; i <= mainEnd; i++) path.lineTo(pts[i].x, pts[i].y);
 
       ctx.save();
-      if (ghost) ctx.globalAlpha = 0.82;
+      ctx.globalAlpha = alphaBase;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
       /* Contorno continuo: silueta limpia incluso en curvas cerradas. */
-      ctx.globalAlpha = ghost ? 0.3 : 0.62;
+      ctx.globalAlpha = phantom ? 0.18 : ghost ? 0.3 : 0.62;
       ctx.strokeStyle = '#02060e';
       ctx.lineWidth = R * 2 + Math.max(2.5, R * 0.2);
       ctx.stroke(path);
 
       /* Base del cuerpo. */
-      ctx.globalAlpha = ghost ? 0.82 : 1;
+      ctx.globalAlpha = alphaBase;
       ctx.strokeStyle = skin.colors[0];
       ctx.lineWidth = R * 2;
       ctx.stroke(path);
@@ -1889,7 +2234,7 @@
 
       /* Cola afilada (tramo final). */
       if (mainEnd < n - 1) {
-        ctx.globalAlpha = ghost ? 0.3 : 0.58;
+        ctx.globalAlpha = phantom ? 0.18 : ghost ? 0.3 : 0.58;
         ctx.strokeStyle = '#02060e';
         for (let i = mainEnd + 1; i < n; i++) {
           const p0 = pts[i - 1], p1 = pts[i];
@@ -1902,7 +2247,7 @@
           ctx.lineTo(p1.x, p1.y);
           ctx.stroke();
         }
-        ctx.globalAlpha = ghost ? 0.82 : 1;
+        ctx.globalAlpha = alphaBase;
         ctx.lineCap = 'round';
         for (let i = mainEnd + 1; i < n; i++) {
           const p0 = pts[i - 1], p1 = pts[i];
@@ -1920,7 +2265,7 @@
       }
 
       /* Sombra inferior */
-      ctx.globalAlpha = ghost ? 0.12 : 0.16;
+      ctx.globalAlpha = phantom ? 0.06 : ghost ? 0.12 : 0.16;
       ctx.strokeStyle = '#01040a';
       ctx.lineWidth = Math.max(1, R * 0.5);
       ctx.save();
@@ -1929,7 +2274,7 @@
       ctx.restore();
 
       /* Brillo tubular */
-      ctx.globalAlpha = ghost ? 0.18 : 0.2;
+      ctx.globalAlpha = phantom ? 0.1 : ghost ? 0.18 : 0.2;
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = Math.max(1, R * 0.38);
       ctx.save();
@@ -1937,7 +2282,7 @@
       ctx.stroke(path);
       ctx.restore();
 
-      ctx.globalAlpha = ghost ? 0.82 : 1;
+      ctx.globalAlpha = alphaBase;
 
       /* Patrón */
       this._drawSkinPattern(ctx, s, pts, n, R);
@@ -2108,15 +2453,16 @@
 
     _drawSnakeHead(ctx, s) {
       const skin = s.skin;
-      const R = s.radius;
+      const phantom = this._isPhantom(s);
+      const R = s.radius * (s.radiusScale || 1);
       const hr = R * (skin.bigHead ? 1.14 : 1.04);
       const ageBlink = Math.sin(this.renderTime * 1.25 + s.phase) > 0.987;
-      const ghost = !!skin.ghost;
+      const ghost = !!skin.ghost || phantom;
 
       /* Aura de cabeza */
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = ghost ? 0.22 : 0.32;
+      ctx.globalAlpha = phantom ? 0.36 : ghost ? 0.22 : 0.32;
       const gs = hr * 3.8;
       ctx.drawImage(this._glowSprite(skin.glow), s.x - gs / 2, s.y - gs / 2, gs, gs);
       ctx.restore();
@@ -2147,13 +2493,64 @@
           ctx.stroke();
           ctx.globalAlpha = 1;
         }
+        if (this.powerTimer > 0 && this.power) {
+          const pw = this.power;
+          ctx.globalAlpha = 0.65;
+          ctx.strokeStyle = pw.glow;
+          ctx.lineWidth = 1.6 / this.cam.zoom;
+          ctx.setLineDash([8 / this.cam.zoom, 6 / this.cam.zoom]);
+          ctx.lineDashOffset = -t * 38;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, hr * (2.55 + 0.06 * Math.sin(t * 4)), 0, TAU);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 0.22;
+          ctx.lineWidth = 5 / this.cam.zoom;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, hr * 2.55, 0, TAU);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+        if (s.powerMagnet) {
+          ctx.globalAlpha = 0.28;
+          ctx.strokeStyle = '#57ff9a';
+          ctx.lineWidth = 1.4 / this.cam.zoom;
+          ctx.setLineDash([5 / this.cam.zoom, 8 / this.cam.zoom]);
+          ctx.lineDashOffset = -t * 22;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, hr * 3.8, 0, TAU);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 0.14;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, hr * 5.1, 0, TAU);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+        if (this.effect && this.effect.mode === 'orbit') {
+          for (let i = 0; i < 3; i++) {
+            const a = t * (1.2 + i * 0.18) + i * Math.PI * 2 / 3;
+            const rx = hr * 2.25;
+            const ry = hr * 1.15;
+            const ox = s.x + Math.cos(a) * rx;
+            const oy = s.y + Math.sin(a) * ry;
+            const size = hr * (0.35 + i * 0.06);
+            ctx.globalAlpha = 0.8;
+            ctx.drawImage(this._glowSprite(this.effect.colors[i % this.effect.colors.length]), ox - size * 1.7, oy - size * 1.7, size * 3.4, size * 3.4);
+            ctx.fillStyle = this.effect.colors[i % this.effect.colors.length];
+            ctx.beginPath();
+            ctx.arc(ox, oy, size * 0.6, 0, TAU);
+            ctx.fill();
+          }
+          ctx.globalAlpha = 1;
+        }
         ctx.restore();
       }
 
       ctx.save();
       ctx.translate(s.x, s.y);
       ctx.rotate(s.angle);
-      if (ghost) ctx.globalAlpha = 0.86;
+      if (ghost) ctx.globalAlpha = phantom ? 0.6 : 0.86;
 
       /* Accesorios traseros */
       if (skin.accessory === 'horns') {
@@ -2261,7 +2658,8 @@
       if (!s.name) return;
       const zoom = this.cam.zoom;
       const fontSize = Math.max(8, 11 / zoom);
-      const y = s.y - s.radius - 13 / zoom;
+      const R = s.radius * (s.radiusScale || 1);
+      const y = s.y - R - 13 / zoom;
       ctx.save();
       ctx.font = '600 ' + fontSize.toFixed(1) + 'px Rajdhani, sans-serif';
       try { ctx.letterSpacing = (1 / zoom) + 'px'; } catch (err) { /* noop */ }
@@ -2283,8 +2681,18 @@
         if (!this._inView(p.x, p.y, 30)) continue;
         const a = Math.max(0, p.life / p.max);
         ctx.globalAlpha = a * 0.85;
-        const size = p.size * (0.6 + a * 0.8) * 4.2;
-        ctx.drawImage(this._glowSprite(p.color), p.x - size / 2, p.y - size / 2, size, size);
+        if (p.shape === 'streak') {
+          ctx.strokeStyle = p.color;
+          ctx.lineWidth = Math.max(0.8, p.size * 0.9);
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x - p.vx * 0.05, p.y - p.vy * 0.05);
+          ctx.stroke();
+        } else {
+          const size = p.size * (0.6 + a * 0.8) * 4.2;
+          ctx.drawImage(this._glowSprite(p.color), p.x - size / 2, p.y - size / 2, size, size);
+        }
       }
       ctx.restore();
       ctx.globalAlpha = 1;
