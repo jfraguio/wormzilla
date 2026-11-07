@@ -1615,7 +1615,7 @@
       pts.length = 0;
       pts.push({ x: s.x, y: s.y });
       const body = s.points;
-      for (let i = 0; i < body.length; i += 2) {
+      for (let i = 0; i < body.length; i++) {
         const p = body[i];
         const last = pts[pts.length - 1];
         const dx = p.x - last.x, dy = p.y - last.y;
@@ -1826,67 +1826,113 @@
       const skin = s.skin;
       const R = s.radius;
       const ghost = !!skin.ghost;
+      const mainEnd = Math.max(2, Math.min(n - 1, Math.floor(n * 0.86)));
+
+      const path = new Path2D();
+      path.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i <= mainEnd; i++) path.lineTo(pts[i].x, pts[i].y);
 
       ctx.save();
       if (ghost) ctx.globalAlpha = 0.82;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
-      /* Contorno oscuro para separar el cuerpo del fondo */
+      /* Contorno continuo: silueta limpia incluso en curvas cerradas. */
       ctx.globalAlpha = ghost ? 0.3 : 0.62;
       ctx.strokeStyle = '#02060e';
-      for (let i = 1; i < n; i++) {
-        const p0 = pts[i - 1], p1 = pts[i];
-        const t = i / (n - 1);
-        const taper = t > 0.86 ? 1 - (t - 0.86) / 0.14 * 0.76 : 1;
-        const width = R * 2 * taper;
-        if (width < 1.2) continue;
-        ctx.lineWidth = width + Math.max(2.5, R * 0.2);
-        ctx.beginPath();
-        ctx.moveTo(p0.x, p0.y);
-        ctx.lineTo(p1.x, p1.y);
-        ctx.stroke();
-      }
-      ctx.globalAlpha = ghost ? 0.82 : 1;
+      ctx.lineWidth = R * 2 + Math.max(2.5, R * 0.2);
+      ctx.stroke(path);
 
-      /* Cuerpo segmentado */
-      for (let i = 1; i < n; i++) {
-        const p0 = pts[i - 1], p1 = pts[i];
-        const t = i / (n - 1);
-        const taper = t > 0.86 ? 1 - (t - 0.86) / 0.14 * 0.76 : 1;
-        const width = R * 2 * taper;
-        if (width < 0.8) continue;
-        ctx.strokeStyle = this._bodyColor(skin, i * SPACING * 2, t);
-        ctx.lineWidth = width;
-        ctx.beginPath();
-        ctx.moveTo(p0.x, p0.y);
-        ctx.lineTo(p1.x, p1.y);
-        ctx.stroke();
+      /* Base del cuerpo. */
+      ctx.globalAlpha = ghost ? 0.82 : 1;
+      ctx.strokeStyle = skin.colors[0];
+      ctx.lineWidth = R * 2;
+      ctx.stroke(path);
+
+      if (skin.pattern === 'chrome' || skin.pattern === 'stars') {
+        const grad = ctx.createLinearGradient(pts[0].x, pts[0].y, pts[mainEnd].x, pts[mainEnd].y);
+        const cols = skin.colors;
+        if (skin.pattern === 'chrome') {
+          grad.addColorStop(0, cols[0]);
+          grad.addColorStop(0.35, cols[1]);
+          grad.addColorStop(0.72, cols[0]);
+          grad.addColorStop(1, cols[2]);
+        } else {
+          grad.addColorStop(0, cols[2]);
+          grad.addColorStop(0.45, cols[0]);
+          grad.addColorStop(1, cols[1]);
+        }
+        ctx.strokeStyle = grad;
+        ctx.stroke(path);
+      } else {
+        /* Bandas suaves mediante trazos discontinuos sobre la misma ruta. */
+        const cols = skin.colors;
+        const N = cols.length;
+        if (N > 1) {
+          const band = skin.band || 34;
+          const offset = skin.pattern === 'rainbow' ? this.renderTime * 24 : 0;
+          ctx.lineCap = 'butt';
+          for (let i = 0; i < N; i++) {
+            ctx.strokeStyle = cols[i];
+            ctx.setLineDash([band, band * (N - 1)]);
+            ctx.lineDashOffset = -i * band - offset;
+            ctx.stroke(path);
+          }
+          ctx.setLineDash([]);
+          ctx.lineCap = 'round';
+        }
+      }
+
+      /* Cola afilada (tramo final). */
+      if (mainEnd < n - 1) {
+        ctx.globalAlpha = ghost ? 0.3 : 0.58;
+        ctx.strokeStyle = '#02060e';
+        for (let i = mainEnd + 1; i < n; i++) {
+          const p0 = pts[i - 1], p1 = pts[i];
+          const t = i / (n - 1);
+          const taper = 1 - (t - 0.86) / 0.14 * 0.76;
+          const width = R * 2 * Math.max(0.08, taper);
+          ctx.lineWidth = width + Math.max(1.2, R * 0.12);
+          ctx.beginPath();
+          ctx.moveTo(p0.x, p0.y);
+          ctx.lineTo(p1.x, p1.y);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = ghost ? 0.82 : 1;
+        ctx.lineCap = 'round';
+        for (let i = mainEnd + 1; i < n; i++) {
+          const p0 = pts[i - 1], p1 = pts[i];
+          const t = i / (n - 1);
+          const taper = 1 - (t - 0.86) / 0.14 * 0.76;
+          const width = R * 2 * Math.max(0.08, taper);
+          if (width < 0.8) continue;
+          ctx.strokeStyle = this._bodyColor(skin, i * SPACING, t);
+          ctx.lineWidth = width;
+          ctx.beginPath();
+          ctx.moveTo(p0.x, p0.y);
+          ctx.lineTo(p1.x, p1.y);
+          ctx.stroke();
+        }
       }
 
       /* Sombra inferior */
       ctx.globalAlpha = ghost ? 0.12 : 0.16;
       ctx.strokeStyle = '#01040a';
       ctx.lineWidth = Math.max(1, R * 0.5);
-      ctx.beginPath();
-      ctx.moveTo(pts[0].x, pts[0].y + R * 0.3);
-      for (let i = 1; i < n * 0.9; i += 2) {
-        const p = pts[i];
-        ctx.lineTo(p.x, p.y + R * 0.3);
-      }
-      ctx.stroke();
+      ctx.save();
+      ctx.translate(0, R * 0.3);
+      ctx.stroke(path);
+      ctx.restore();
 
       /* Brillo tubular */
       ctx.globalAlpha = ghost ? 0.18 : 0.2;
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = Math.max(1, R * 0.38);
-      ctx.beginPath();
-      ctx.moveTo(pts[0].x, pts[0].y - R * 0.3);
-      for (let i = 1; i < n * 0.92; i += 2) {
-        const p = pts[i];
-        ctx.lineTo(p.x, p.y - R * 0.3);
-      }
-      ctx.stroke();
+      ctx.save();
+      ctx.translate(0, -R * 0.3);
+      ctx.stroke(path);
+      ctx.restore();
+
       ctx.globalAlpha = ghost ? 0.82 : 1;
 
       /* Patrón */
